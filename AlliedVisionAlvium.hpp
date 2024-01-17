@@ -25,13 +25,15 @@ class FrameObserver : public VmbCPP::IFrameObserver
         void FrameReceived(const VmbCPP::FramePtr frame)
         {
             VmbError_t err;
-            std::chrono::time_point<std::chrono::system_clock> now = 
-                std::chrono::system_clock::now();
-
-            auto duration = now.time_since_epoch();
-            auto micro = std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
-            
+            int openCvType;
+            VmbPixelFormatType format;
             VmbFrameStatusType status;
+            uint32_t height;
+            uint32_t width;
+            uint8_t* data;
+            VmbUint64_t timestamp;
+            VmbUint64_t frameID;
+
             err = frame->GetReceiveStatus(status);
 
             if(VmbErrorSuccess != err)
@@ -59,8 +61,7 @@ class FrameObserver : public VmbCPP::IFrameObserver
                     }
                 }
             }
-            int openCvType;
-            VmbPixelFormatType format;
+
             frame.get()->GetPixelFormat(format);
             switch(format)
             {
@@ -96,15 +97,12 @@ class FrameObserver : public VmbCPP::IFrameObserver
                 }
             }
 
-            uint32_t height;
-            uint32_t width;
-            uint8_t* data;
-            VmbUint64_t timestamp;
+
             frame->GetHeight(height);
             frame->GetWidth(width);
             frame->GetBuffer(data);
             frame->GetTimestamp(timestamp);
-
+            frame->GetFrameID(frameID);
 
             cv::Mat image(
                 height,
@@ -117,7 +115,7 @@ class FrameObserver : public VmbCPP::IFrameObserver
 
             if(nullptr != this->callback)
             {
-                this->callback(image, micro, timestamp, this->argument);
+                this->callback(image, timestamp, frameID, this->argument);
             }
         };
 
