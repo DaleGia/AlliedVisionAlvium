@@ -39,11 +39,11 @@ class AlliedVisionAlviumConnectionHandler : public VmbCPP::ICameraListObserver
                 */
                 if(VmbErrorSuccess != err)
                 {
-                    std::cerr << "Could not start VimbaX..." << std::endl;
+                    std::cerr << "Could not start VimbaX... " << err << std::endl;
                 }
                 else if(VmbErrorSuccess != vimbax.GetCameras(cameras))
                 {
-                    std::cerr << "Could not get camera list..." << std::endl;
+                    std::cerr << "Could not get camera list..." << err << std::endl;
                 }
                 else if(0 == cameras.size())
                 {
@@ -52,11 +52,11 @@ class AlliedVisionAlviumConnectionHandler : public VmbCPP::ICameraListObserver
                 }
                 else if(VmbErrorSuccess != cameras[0]->GetName(cameraName))
                 {
-                    std::cerr << "Could not get camera name..." << std::endl;
+                    std::cerr << "Could not get camera name..." << err << std::endl;
                 }
                 else if(VmbErrorSuccess != cameras[0]->GetID(cameraId))
                 {
-                    std::cerr << "Could not get camera id..." << std::endl;
+                    std::cerr << "Could not get camera id..." << err << std::endl;
                 }
                 else
                 {

@@ -177,6 +177,22 @@ AlliedVisionAlvium::AlliedVisionAlvium()
 
 AlliedVisionAlvium::~AlliedVisionAlvium()
 {
+    try
+    {
+        if(cameraOpen)
+        {
+            this->disconnect();
+        }
+        VmbCPP::VmbSystem &vimbax  = 
+            VmbCPP::VmbSystem::GetInstance(); 
+        vimbax.Shutdown();    
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+    }
+    
+
 }
 
 bool AlliedVisionAlvium::connect(std::string cameraName)
@@ -207,6 +223,7 @@ bool AlliedVisionAlvium::connect(std::string cameraName)
 bool AlliedVisionAlvium::disconnect(void)
 {
     VmbErrorType err;
+    this->stopAcquisition();
     err = this->camera->Close();
     if(err != VmbErrorSuccess)
     {
