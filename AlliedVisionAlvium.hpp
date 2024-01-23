@@ -2,7 +2,7 @@
 #define ALLIEDVISIONALVIUM_H_
 
 #include <iostream>
-#include <VmbCPP/VmbCPP.h>
+#include "VmbCPP/VmbCPP.h"
 
 /**
  * \brief IFrameObserver implementation for asynchronous image acquisition
@@ -112,7 +112,6 @@ class FrameObserver : public VmbCPP::IFrameObserver
 
             /* returns the frame buffer back to the queue */
             m_pCamera->QueueFrame(frame);
-
             if(nullptr != this->callback)
             {
                 this->callback(image, timestamp, frameID, this->argument);
