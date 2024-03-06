@@ -21,6 +21,56 @@ class AlliedVisionAlviumConnectionHandler : public VmbCPP::ICameraListObserver
             vimbax.Shutdown();      
         };
 
+        void getConnectedCamera(void)
+        {
+
+            VmbErrorType err;
+            VmbCPP::CameraPtrVector cameras;   
+            std::string cameraName;
+            std::string cameraId;
+
+            try
+            {
+                VmbCPP::VmbSystem &vimbax  = 
+                    VmbCPP::VmbSystem::GetInstance();
+                err = vimbax.Startup();
+                
+                /* Generate the initial camera list and call the connection 
+                    callback just because it is convinient
+                */
+                if(VmbErrorSuccess != err)
+                {
+                    std::cerr << "Could not start VimbaX... " << err << std::endl;
+                }
+                else if(VmbErrorSuccess != vimbax.GetCameras(cameras))
+                {
+                    std::cerr << "Could not get camera list..." << err << std::endl;
+                }
+                else if(0 == cameras.size())
+                {
+                    std::cout << "No Cameras connected..." << std::endl;
+                    vimbax.RegisterCameraListObserver(VmbCPP::ICameraListObserverPtr(this)); 
+                }
+                else if(VmbErrorSuccess != cameras[0]->GetName(cameraName))
+                {
+                    std::cerr << "Could not get camera name..." << err << std::endl;
+                }
+                else if(VmbErrorSuccess != cameras[0]->GetID(cameraId))
+                {
+                    std::cerr << "Could not get camera id..." << err << std::endl;
+                }
+                else
+                {
+                    std::cout << "Camera  connected..." << std::endl;
+                    this->cameraConnectedCallback(cameraName, cameraId);
+                }
+            }
+            catch(const std::exception& e)
+            {
+                throw std::runtime_error(e.what());
+            }  
+        };
+
         void start(void)
         {
             VmbErrorType err;

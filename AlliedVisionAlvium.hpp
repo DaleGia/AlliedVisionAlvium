@@ -2,6 +2,7 @@
 #define ALLIEDVISIONALVIUM_H_
 
 #include <iostream>
+#include <opencv2/opencv.hpp>
 #include "VmbCPP/VmbCPP.h"
 
 /**
@@ -340,14 +341,16 @@ bool AlliedVisionAlvium::getGainDb(std::string &buffer)
 
 bool AlliedVisionAlvium::setFrameRateHz(std::string buffer)
 {
+    if(false == this->setFeature("AcquisitionFrameRateEnable", "true"))
+    {   
+    }
+    
     if(false == this->setFeature("AcquisitionFrameRate", buffer))
     {
         return false;
     }
-    else
-    {
-        return true;
-    }
+
+    return true;
 }
 
 bool AlliedVisionAlvium::setExposureUs(std::string buffer)
