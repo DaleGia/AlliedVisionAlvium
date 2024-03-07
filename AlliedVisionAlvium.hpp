@@ -157,6 +157,7 @@ class AlliedVisionAlvium
         bool getExposureUs(std::string &buffer);
         bool getGainDb(std::string &buffer);
         bool getBitDepth(std::string &buffer);
+        bool getTemperature(std::string &buffer);
 
         bool setFrameRateHz(std::string buffer);
         bool setExposureUs(std::string buffer);
@@ -389,6 +390,19 @@ bool AlliedVisionAlvium::getBitDepth(std::string &buffer)
         return true;
     }
 }
+
+bool AlliedVisionAlvium::getTemperature(std::string &buffer)
+{
+    if(false == this->getFeature("DeviceTemperature", buffer))
+    {
+        return false;
+    }
+    else
+    {
+        return true;
+    }
+}
+
 
 bool AlliedVisionAlvium::setBitDepth(std::string buffer)
 {
