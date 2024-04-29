@@ -227,6 +227,9 @@ class AlliedVisionAlvium
 
         bool loadConfiguration1(void);
         bool saveConfiguration1(void);
+        bool loadSettingsFile(std::string filepath);
+        bool saveSettingsFile(std::string filepath);
+
     private:
         VmbCPP::CameraPtr camera;
         std::string name;
@@ -246,9 +249,6 @@ AlliedVisionAlvium::~AlliedVisionAlvium()
         {
             this->disconnect();
         }
-        VmbCPP::VmbSystem &vimbax  = 
-            VmbCPP::VmbSystem::GetInstance(); 
-        vimbax.Shutdown();    
     }
     catch(const std::exception& e)
     {
@@ -641,6 +641,44 @@ bool AlliedVisionAlvium::setBitDepth(std::string buffer)
     {
         return true;
     }
+}
+
+bool AlliedVisionAlvium::loadSettingsFile(std::string filepath)
+{
+    VmbError_t err;
+    VmbFeaturePersistSettings_t settings;
+    settings.loggingLevel = VmbLogLevelAll;
+    settings.maxIterations = 10;
+    settings.persistType = VmbFeaturePersistAll;
+    settings.modulePersistFlags = VmbModulePersistFlagsAll;
+    err = this->camera->LoadSettings(filepath.c_str(), &settings);
+
+    if(VmbErrorSuccess != err)
+    {
+        std::cout << "Error loading settings: " << err << " - " << filepath << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
+bool AlliedVisionAlvium::saveSettingsFile(std::string filepath)
+{
+    VmbError_t err;
+    VmbFeaturePersistSettings_t settings;
+    settings.loggingLevel = VmbLogLevelError;
+    settings.maxIterations = 10;
+    settings.persistType = VmbFeaturePersistAll;
+    settings.modulePersistFlags = VmbModulePersistFlagsAll;
+    err = this->camera->SaveSettings(filepath.c_str(), &settings);
+
+    if(VmbErrorSuccess != err)
+    {
+        std::cout << "Error saving settings: " << err << " - " << filepath << std::endl;
+        return false;
+    }
+
+    return true;
 }
 
 bool AlliedVisionAlvium::loadConfiguration1(void)
