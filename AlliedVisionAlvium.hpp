@@ -150,7 +150,7 @@ class AlliedVisionAlvium
             void* arg);
         bool stopAcquisition(void);
 
-        bool getName(std::string &buffer);
+        std::string getName(void);
         bool getId(std::string &buffer);
 
         bool getFrameRateHz(std::string &buffer);
@@ -168,6 +168,7 @@ class AlliedVisionAlvium
         bool saveConfiguration1(void);
     private:
         VmbCPP::CameraPtr camera;
+        std::string name;
         bool cameraOpen = false;
 
 };
@@ -202,8 +203,20 @@ bool AlliedVisionAlvium::connect(std::string cameraName)
         VmbCPP::VmbSystem::GetInstance(); 
 
     VmbErrorType err;
+    this->name = cameraName;
     /* Start the API, get and open cameras */
     err = vimbax.Startup();
+    if(err == VmbErrorAlready)
+    {
+        /* Do not do nothin'*/
+    }
+    else if(err != VmbErrorSuccess)
+    {
+        std::cerr << "Unable to start up vimbax " << 
+        cameraName << ": " << err << std::endl;
+        this->cameraOpen = false;
+        return false;
+    }
 
     err = vimbax.OpenCameraByID(
         cameraName.c_str(),
@@ -270,22 +283,10 @@ bool AlliedVisionAlvium::isCameraOpen(void)
     return this->cameraOpen;
 }
 
-bool AlliedVisionAlvium::getName(std::string &buffer)
+std::string AlliedVisionAlvium::getName(void)
 {    
     VmbErrorType err;
-
-    if(false == this->isCameraOpen())
-    {
-        return false;
-    }
-    err = this->camera->GetName(buffer);
-    
-    if(VmbErrorSuccess != err)
-    {
-        return false;
-    }
-
-    return true;
+    return this->name;
 }
 
 bool AlliedVisionAlvium::getId(std::string &buffer)
@@ -487,6 +488,10 @@ bool AlliedVisionAlvium::setFeature(
     {
         error = feature.get()->SetValue(std::stof(featureValue));
     }
+    else if(VmbFeatureDataEnum == dataType)
+    {
+        error = feature.get()->SetValue(featureValue.c_str());
+    }
     else if(VmbFeatureDataString == dataType)
     {
         error = feature.get()->SetValue(featureValue.c_str());
@@ -502,9 +507,9 @@ bool AlliedVisionAlvium::setFeature(
             error = feature.get()->SetValue(true);
         }
     }
-    else if(VmbFeatureDataEnum == dataType)
+    else if(VmbFeatureDataCommand == dataType)
     {
-        error = feature.get()->SetValue(featureValue.c_str());
+        feature.get()->RunCommand();
     }
     else
     {
