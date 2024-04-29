@@ -4,6 +4,7 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
 #include "VmbCPP/VmbCPP.h"
+#include "VmbImageTransform/VmbTransform.h"
 
 /**
  * \brief IFrameObserver implementation for asynchronous image acquisition
@@ -31,9 +32,15 @@ class FrameObserver : public VmbCPP::IFrameObserver
             VmbFrameStatusType status;
             uint32_t height;
             uint32_t width;
+            uint32_t bufferSize;
+            cv::Mat image;
             uint8_t* data;
             VmbUint64_t timestamp;
             VmbUint64_t frameID;
+            /* These are used for unpacking images if need be */
+            VmbImage sourceImage;
+            VmbImage destinationImage;
+            bool requiresUnpacking;
 
             err = frame->GetReceiveStatus(status);
 
@@ -64,31 +71,96 @@ class FrameObserver : public VmbCPP::IFrameObserver
             }
 
             frame.get()->GetPixelFormat(format);
+            frame->GetHeight(height);
+            frame->GetWidth(width);
+            frame->GetTimestamp(timestamp);
+            frame->GetFrameID(frameID);
+            frame->GetBufferSize(bufferSize);
+            frame->GetBuffer(data);
             switch(format)
             {
                 case VmbPixelFormatMono8:
                 {
                     openCvType = CV_8UC1;
+                    image = cv::Mat(
+                        height,
+                        width, 
+                        openCvType, 
+                        data);
                     break;
                 }
                 case VmbPixelFormatMono10:
                 {
                     openCvType = CV_16UC1;
+                    image = cv::Mat(
+                        height,
+                        width, 
+                        openCvType, 
+                        data);
                     break;
                 }
                 case VmbPixelFormatMono12:
                 {
                     openCvType = CV_16UC1;
+                    image = cv::Mat(
+                        height,
+                        width, 
+                        openCvType, 
+                        data);
                     break;
                 }
-                case VmbPixelFormatMono14:
+                case VmbPixelFormatMono12p:
                 {
                     openCvType = CV_16UC1;
-                    break;
-                }
-                case VmbPixelFormatMono16:
-                {
-                    openCvType = CV_16UC1;
+
+                    /* Convert the image to 16 bit*/
+                    sourceImage.Size = sizeof(sourceImage);
+                    /* The 2 is because it needs to fit 16 bit*/
+                    sourceImage.Data = data;
+                    destinationImage.Size = sizeof(destinationImage);
+                    destinationImage.Data = malloc(width*height*2);
+                    if(nullptr == destinationImage.Data)
+                    {   
+                        std::cerr << "Could not create destination buffer for unpacking" << std::endl;
+                        return;
+                    }
+
+
+                    VmbError_t error = VmbSetImageInfoFromPixelFormat(
+                        VmbPixelFormatMono12p,
+                        width,
+                        height,
+                        &sourceImage);
+                    if(VmbErrorSuccess != error)
+                    {
+                        std::cerr << "Could not create source image info for unpacking: " << error << std::endl;
+                        return;
+                    }
+                    error = VmbSetImageInfoFromInputParameters(
+                        VmbPixelFormatMono12,
+                        width,
+                        height,
+                        VmbPixelLayoutMono,
+                        16,
+                        &destinationImage);
+                    if(error != VmbErrorSuccess)
+                    {
+                        std::cerr << "Could not create destination image info for unpacking: " << error << std::endl;
+                    }
+                    error = VmbImageTransform(
+                        &sourceImage, 
+                        &destinationImage, 
+                        NULL, 
+                        0);
+                    if(error != VmbErrorSuccess)
+                    {
+                        std::cerr << "Could not unpack image: " << error << std::endl;
+                    }
+                    image = cv::Mat(
+                        height,
+                        width, 
+                        openCvType, 
+                        destinationImage.Data);
                     break;
                 }
                 default:
@@ -98,25 +170,13 @@ class FrameObserver : public VmbCPP::IFrameObserver
                 }
             }
 
-
-            frame->GetHeight(height);
-            frame->GetWidth(width);
-            frame->GetBuffer(data);
-            frame->GetTimestamp(timestamp);
-            frame->GetFrameID(frameID);
-
-            cv::Mat image(
-                height,
-                width, 
-                openCvType, 
-                data);
-
             /* returns the frame buffer back to the queue */
             m_pCamera->QueueFrame(frame);
             if(nullptr != this->callback)
             {
                 this->callback(image, timestamp, frameID, this->argument);
             }
+            free(destinationImage.Data);
         };
 
     private:
@@ -149,6 +209,7 @@ class AlliedVisionAlvium
             std::function<void(cv::Mat, uint64_t, uint64_t, void*)> newFrameCallback, 
             void* arg);
         bool stopAcquisition(void);
+        bool getSingleFrame(cv::Mat &buffer, uint32_t timeoutMs);
 
         std::string getName(void);
         bool getId(std::string &buffer);
@@ -248,7 +309,172 @@ bool AlliedVisionAlvium::disconnect(void)
     return this->cameraOpen;
 }
 
+bool AlliedVisionAlvium::getSingleFrame(cv::Mat &buffer, uint32_t timeoutMs)
+{
+    VmbCPP::FramePtr frame;
+    VmbError_t err;
+    int openCvType;
+    VmbPixelFormatType format;
+    VmbFrameStatusType status;
+    uint32_t height;
+    uint32_t width;
+    uint32_t bufferSize;
+    cv::Mat image;
+    uint8_t* data;
+    VmbUint64_t timestamp;
+    VmbUint64_t frameID;
+    /* These are used for unpacking images if need be */
+    VmbImage sourceImage;
+    VmbImage destinationImage;
+    bool requiresUnpacking;
 
+    err = camera->AcquireSingleImage(frame, timeoutMs);
+    if(VmbErrorSuccess != err)
+    {
+        std::cerr << "Could not get single frame: " << err << std::endl;
+        return false;
+    }
+
+    err = frame->GetReceiveStatus(status);
+
+    if(VmbErrorSuccess != err)
+    {
+        std::cerr << "Could not get frame status" << std::endl;
+        return false;
+    }
+    else if(VmbFrameStatusComplete != status)
+    {
+        switch(status)
+        {
+            case VmbFrameStatusIncomplete: 
+            {
+                std::cerr << "Frame incomplete. Try a slower frame rate" << std::endl;
+                return false;
+            }
+            case VmbFrameStatusTooSmall: 
+            {
+                std::cerr << "Frame too small..." << std::endl;
+                return false;
+            }
+            case VmbFrameStatusInvalid: 
+            {
+                std::cerr << "Frame invalid..." << std::endl;
+                return false;
+            }
+        }
+    }
+
+    frame->GetPixelFormat(format);
+    frame->GetHeight(height);
+    frame->GetWidth(width);
+    frame->GetTimestamp(timestamp);
+    frame->GetFrameID(frameID);
+    frame->GetBufferSize(bufferSize);
+    frame->GetBuffer(data);
+    switch(format)
+    {
+        case VmbPixelFormatMono8:
+        {
+            openCvType = CV_8UC1;
+            image = cv::Mat(
+                height,
+                width, 
+                openCvType, 
+                data);
+            break;
+        }
+        case VmbPixelFormatMono10:
+        {
+            openCvType = CV_16UC1;
+            image = cv::Mat(
+                height,
+                width, 
+                openCvType, 
+                data);
+            break;
+        }
+        case VmbPixelFormatMono12:
+        {
+            openCvType = CV_16UC1;
+            image = cv::Mat(
+                height,
+                width, 
+                openCvType, 
+                data);
+            break;
+        }
+        case VmbPixelFormatMono12p:
+        {
+            openCvType = CV_16UC1;
+
+            /* Convert the image to 16 bit*/
+            sourceImage.Size = sizeof(sourceImage);
+            /* The 2 is because it needs to fit 16 bit*/
+            sourceImage.Data = data;
+            destinationImage.Size = sizeof(destinationImage);
+            destinationImage.Data = malloc(width*height*2);
+            if(nullptr == destinationImage.Data)
+            {   
+                std::cerr << "Could not create destination buffer for unpacking" << std::endl;
+                return false;
+            }
+
+
+            VmbError_t error = VmbSetImageInfoFromPixelFormat(
+                VmbPixelFormatMono12p,
+                width,
+                height,
+                &sourceImage);
+            if(VmbErrorSuccess != error)
+            {
+                std::cerr << "Could not create source image info for unpacking: " << error << std::endl;
+                free(destinationImage.Data);
+                return false;
+            }
+            error = VmbSetImageInfoFromInputParameters(
+                VmbPixelFormatMono12,
+                width,
+                height,
+                VmbPixelLayoutMono,
+                16,
+                &destinationImage);
+            if(error != VmbErrorSuccess)
+            {
+                std::cerr << "Could not create destination image info for unpacking: " << error << std::endl;
+                return false;
+            }
+            error = VmbImageTransform(
+                &sourceImage, 
+                &destinationImage, 
+                NULL, 
+                0);
+            if(error != VmbErrorSuccess)
+            {
+                std::cerr << "Could not unpack image: " << error << std::endl;
+                return false;
+            }
+            image = cv::Mat(
+                height,
+                width, 
+                openCvType, 
+                destinationImage.Data);
+            break;
+        }
+        default:
+        {
+            std::cerr << "Camera frame format not supported... " << format << std::endl;
+            free(destinationImage.Data);
+            return false;
+        }
+    }
+
+    /* returns the frame buffer back to the queue */
+    this->camera->QueueFrame(frame);
+    buffer = image.clone();
+    free(destinationImage.Data);
+
+    return true;
+}
 bool AlliedVisionAlvium::startAcquisition(
     int bufferCount, 
     std::function<void(cv::Mat, uint64_t, uint64_t, void*)> newFrameCallback, 
