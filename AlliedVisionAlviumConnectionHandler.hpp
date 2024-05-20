@@ -98,22 +98,26 @@ class AlliedVisionAlviumConnectionHandler : public VmbCPP::ICameraListObserver
                 else if(0 == cameras.size())
                 {
                     std::cout << "No Cameras connected..." << std::endl;
-                    vimbax.RegisterCameraListObserver(VmbCPP::ICameraListObserverPtr(this)); 
                 }
-                else if(VmbErrorSuccess != cameras[0]->GetName(cameraName))
+
+                for(int i = 0; i < cameras.size(); i++)
                 {
-                    std::cerr << "Could not get camera name..." << err << std::endl;
+                    if(VmbErrorSuccess != cameras[i]->GetName(cameraName))
+                    {
+                        std::cerr << "Could not get camera name..." << err << std::endl;
+                    }
+                    else if(VmbErrorSuccess != cameras[i]->GetID(cameraId))
+                    {
+                        std::cerr << "Could not get camera id..." << err << std::endl;
+                    }
+                    else
+                    {
+                        this->cameraConnectedCallback(cameraName, cameraId);
+                    }
                 }
-                else if(VmbErrorSuccess != cameras[0]->GetID(cameraId))
-                {
-                    std::cerr << "Could not get camera id..." << err << std::endl;
-                }
-                else
-                {
-                    std::cout << "Camera already connected..." << std::endl;
-                    this->cameraConnectedCallback(cameraName, cameraId);
-                    vimbax.RegisterCameraListObserver(VmbCPP::ICameraListObserverPtr(this)); 
-                }
+
+                vimbax.RegisterCameraListObserver(VmbCPP::ICameraListObserverPtr(this)); 
+               
             }
             catch(const std::exception& e)
             {

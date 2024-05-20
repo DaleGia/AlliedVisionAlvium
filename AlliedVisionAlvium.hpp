@@ -29,7 +29,7 @@ class FrameObserver : public VmbCPP::IFrameObserver
             VmbError_t err;
             int openCvType;
             VmbPixelFormatType format;
-            VmbFrameStatusType status;
+            VmbFrameStatusType status = VmbFrameStatusComplete;
             uint32_t height;
             uint32_t width;
             uint32_t bufferSize;
@@ -70,7 +70,7 @@ class FrameObserver : public VmbCPP::IFrameObserver
                 }
             }
 
-            frame.get()->GetPixelFormat(format);
+            frame->GetPixelFormat(format);
             frame->GetHeight(height);
             frame->GetWidth(width);
             frame->GetTimestamp(timestamp);
@@ -161,6 +161,7 @@ class FrameObserver : public VmbCPP::IFrameObserver
                         width, 
                         openCvType, 
                         destinationImage.Data);
+                    free(destinationImage.Data);
                     break;
                 }
                 default:
@@ -176,7 +177,6 @@ class FrameObserver : public VmbCPP::IFrameObserver
             {
                 this->callback(image, timestamp, frameID, this->argument);
             }
-            free(destinationImage.Data);
         };
 
     private:
@@ -736,7 +736,7 @@ bool AlliedVisionAlvium::setFeature(
         return false;
     }
    
-    error = feature.get()->GetDataType(dataType);
+    error = feature->GetDataType(dataType);
     if(VmbErrorSuccess != error)
     {      
         std::cerr << "Could not get feature " << featureName << " datatype" << std::endl;   
@@ -745,35 +745,35 @@ bool AlliedVisionAlvium::setFeature(
 
     if(VmbFeatureDataInt == dataType)
     {
-        error = feature.get()->SetValue(std::stoi(featureValue));
+        error = feature->SetValue(std::stoi(featureValue));
 
     }
     else if(VmbFeatureDataFloat == dataType)
     {
-        error = feature.get()->SetValue(std::stof(featureValue));
+        error = feature->SetValue(std::stof(featureValue));
     }
     else if(VmbFeatureDataEnum == dataType)
     {
-        error = feature.get()->SetValue(featureValue.c_str());
+        error = feature->SetValue(featureValue.c_str());
     }
     else if(VmbFeatureDataString == dataType)
     {
-        error = feature.get()->SetValue(featureValue.c_str());
+        error = feature->SetValue(featureValue.c_str());
     }
     else if(VmbFeatureDataBool == dataType)
     {
         if(featureValue == "false")
         {
-            error = feature.get()->SetValue(false);
+            error = feature->SetValue(false);
         }
         else if(featureValue == "true")
         {
-            error = feature.get()->SetValue(true);
+            error = feature->SetValue(true);
         }
     }
     else if(VmbFeatureDataCommand == dataType)
     {
-        feature.get()->RunCommand();
+        feature->RunCommand();
     }
     else
     {
@@ -805,7 +805,7 @@ bool AlliedVisionAlvium::getFeature(
         std::cerr << "Could not get feature " << featureName << ": " << error << std::endl;
         return false;
     }
-    error = feature.get()->GetDataType(dataType);
+    error = feature->GetDataType(dataType);
     if(VmbErrorSuccess != error)
     {      
         std::cerr << "Could not get feature " << featureName << " datatype" << std::endl;   
@@ -815,7 +815,7 @@ bool AlliedVisionAlvium::getFeature(
     if(VmbFeatureDataInt == dataType)
     {
         VmbInt64_t data;
-        error = feature.get()->GetValue(data);
+        error = feature->GetValue(data);
         if(VmbErrorSuccess != error)
         {      
             std::cerr << "Could not get feature value" << featureName << ": " << error << std::endl;
@@ -827,7 +827,7 @@ bool AlliedVisionAlvium::getFeature(
     else if(VmbFeatureDataFloat == dataType)
     {
         double data;
-        error = feature.get()->GetValue(data);
+        error = feature->GetValue(data);
         if(VmbErrorSuccess != error)
         {      
             std::cerr << "Could not get feature value" << featureName << ": " << error << std::endl;
@@ -838,7 +838,7 @@ bool AlliedVisionAlvium::getFeature(
     else if(VmbFeatureDataString == dataType)
     {
         std::string data;
-        error = feature.get()->GetValue(data);
+        error = feature->GetValue(data);
         if(VmbErrorSuccess != error)
         {      
             std::cerr << "Could not get feature value" << featureName << ": " << error << std::endl;
@@ -849,7 +849,7 @@ bool AlliedVisionAlvium::getFeature(
     else if(VmbFeatureDataBool == dataType)
     {
         bool data;
-        error = feature.get()->GetValue(data);
+        error = feature->GetValue(data);
         if(VmbErrorSuccess != error)
         {      
             std::cerr << "Could not get feature value" << featureName << ": " << error << std::endl;
@@ -860,7 +860,7 @@ bool AlliedVisionAlvium::getFeature(
     else if(VmbFeatureDataEnum == dataType)
     {
         std::string data;
-        error = feature.get()->GetValue(data);
+        error = feature->GetValue(data);
         if(VmbErrorSuccess != error)
         {      
             std::cerr << "Could not get feature value" << featureName << ": " << error << std::endl;
@@ -891,7 +891,7 @@ bool AlliedVisionAlvium::runCommand(
         return false;
     }
 
-    error = feature.get()->RunCommand();
+    error = feature->RunCommand();
     if(VmbErrorSuccess != error)
     {         
         std::cerr << "Could not run command " << command << ": " << error << std::endl;
