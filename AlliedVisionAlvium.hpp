@@ -224,6 +224,7 @@ class AlliedVisionAlvium
         bool setExposureUs(std::string buffer);
         bool setGainDb(std::string buffer);
         bool setBitDepth(std::string buffer);
+        bool setDeviceThroughputLimit(std::string buffer);
 
         bool loadConfiguration1(void);
         bool saveConfiguration1(void);
@@ -577,7 +578,7 @@ bool AlliedVisionAlvium::setFrameRateHz(std::string buffer)
     {
         return false;
     }
-
+    
     return true;
 }
 
@@ -642,6 +643,29 @@ bool AlliedVisionAlvium::setBitDepth(std::string buffer)
         return true;
     }
 }
+
+bool AlliedVisionAlvium::setDeviceThroughputLimit(std::string buffer)
+{
+    if(false == this->setFeature("DeviceLinkThroughputLimitMode", "Off"))
+    {
+        std::cerr << "AlliedVisionAlvium: Could not set DeviceLinkThroughputLimitMode Off" << std::endl;
+        return false;
+    }
+    if(false == this->setFeature("DeviceLinkThroughputLimit", buffer))
+    {
+        std::cerr << "AlliedVisionAlvium: Could not set DeviceLinkThroughputLimit" << std::endl;
+        return false;
+    }
+    
+    if(false == this->setFeature("DeviceLinkThroughputLimitMode", "On"))
+    {
+        std::cerr << "AlliedVisionAlvium: Could not set DeviceLinkThroughputLimitMode On" << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
 
 bool AlliedVisionAlvium::loadSettingsFile(std::string filepath)
 {
@@ -784,7 +808,7 @@ bool AlliedVisionAlvium::setFeature(
 
     if(VmbErrorSuccess != error)
     {      
-        std::cerr << "Could not set feature " << featureName << std::endl;   
+        std::cerr << "Could not set feature " << featureName << ": " << error << std::endl;   
         return false;
     }
 
@@ -896,6 +920,22 @@ bool AlliedVisionAlvium::runCommand(
     {         
         std::cerr << "Could not run command " << command << ": " << error << std::endl;
         return false;
+    }
+
+    bool ret;
+    while(true)
+    {
+        error = feature->IsCommandDone(ret);
+
+        if(VmbErrorSuccess != error)
+        {         
+            std::cerr << "Could not wait for command " + command << ": " << error << std::endl;
+            return false;
+        }
+        else if(true == ret)
+        {
+            break;
+        }
     }
 
     return true;
