@@ -46,7 +46,7 @@ class FrameObserver : public VmbCPP::IFrameObserver
 
             if(VmbErrorSuccess != err)
             {
-                std::cerr << "Could not get frame status" << std::endl;
+                std::cerr << "AlliedVisionAlvium: Could not get frame status" << std::endl;
             }
             else if(VmbFrameStatusComplete != status)
             {
@@ -54,17 +54,17 @@ class FrameObserver : public VmbCPP::IFrameObserver
                 {
                     case VmbFrameStatusIncomplete: 
                     {
-                        std::cerr << "Frame incomplete. Try a slower frame rate" << std::endl;
+                        std::cerr << "AlliedVisionAlvium: Frame incomplete. Try a slower frame rate" << std::endl;
                         return;
                     }
                     case VmbFrameStatusTooSmall: 
                     {
-                        std::cerr << "Frame too small..." << std::endl;
+                        std::cerr << "AlliedVisionAlvium: Frame too small..." << std::endl;
                         return;
                     }
                     case VmbFrameStatusInvalid: 
                     {
-                        std::cerr << "Frame invalid..." << std::endl;
+                        std::cerr << "AlliedVisionAlvium: Frame invalid..." << std::endl;
                         return;
                     }
                 }
@@ -190,7 +190,10 @@ class AlliedVisionAlvium
         AlliedVisionAlvium();
         ~AlliedVisionAlvium();
         
-        bool connect(std::string cameraName);
+        static std::vector<std::string> getCameraList(void);
+        
+        bool connect(std::string deviceID);
+
         bool disconnect(void);
         bool isCameraOpen(void);
 
@@ -200,6 +203,7 @@ class AlliedVisionAlvium
         bool setFeature(
             std::string featureName, 
             std::string featureValue);
+
         bool runCommand(std::string command);
         
 
@@ -209,31 +213,13 @@ class AlliedVisionAlvium
             std::function<void(cv::Mat, uint64_t, uint64_t, void*)> newFrameCallback, 
             void* arg);
         bool stopAcquisition(void);
+
         bool getSingleFrame(cv::Mat &buffer, uint32_t timeoutMs);
 
-        std::string getName(void);
-        bool getId(std::string &buffer);
-
-        bool getFrameRateHz(std::string &buffer);
-        bool getExposureUs(std::string &buffer);
-        bool getGainDb(std::string &buffer);
-        bool getBitDepth(std::string &buffer);
-        bool getTemperature(std::string &buffer);
-
-        bool setFrameRateHz(std::string buffer);
-        bool setExposureUs(std::string buffer);
-        bool setGainDb(std::string buffer);
-        bool setBitDepth(std::string buffer);
         bool setDeviceThroughputLimit(std::string buffer);
-
-        bool loadConfiguration1(void);
-        bool saveConfiguration1(void);
-        bool loadSettingsFile(std::string filepath);
-        bool saveSettingsFile(std::string filepath);
 
     private:
         VmbCPP::CameraPtr camera;
-        std::string name;
         bool cameraOpen = false;
 
 };
@@ -259,13 +245,43 @@ AlliedVisionAlvium::~AlliedVisionAlvium()
 
 }
 
-bool AlliedVisionAlvium::connect(std::string cameraName)
+static bool AlliedVisionAlvium::getCameraList(std::vector<std::string> cameraDeviceId)
+{
+    CameraPtrVector cameras;
+
+    VmbCPP::VmbSystem &vimbax  = 
+        VmbCPP::VmbSystem::GetInstance();
+
+    VmbErrorType err;
+    /* Start the API, get and open cameras */
+    err = vimbax.Startup();
+    if(err == VmbErrorAlready)
+    {
+        /* Do not do nothin'*/
+    }
+    else if(err != VmbErrorSuccess)
+    {
+        std::cerr << "AlliedVisionAlvium::getCameraList: Unable to start up vimbax " << std::endl;
+        return false;
+    } 
+    else if(VmbErrorSuccess == system.GetCameras(cameras))
+    {
+        for(CameraPtrVector :: iterator iter = cameras.begin (); cameras.end() != iter; ++iter)
+        {
+            if(VmbErrorSuccess == (*iter)->GetName(name))
+            {
+                std::cout << name << std::endl;
+            }
+        }
+    }
+}
+
+bool AlliedVisionAlvium::connect(std::string deviceID)
 {
     VmbCPP::VmbSystem &vimbax  = 
         VmbCPP::VmbSystem::GetInstance(); 
 
     VmbErrorType err;
-    this->name = cameraName;
     /* Start the API, get and open cameras */
     err = vimbax.Startup();
     if(err == VmbErrorAlready)
@@ -476,6 +492,7 @@ bool AlliedVisionAlvium::getSingleFrame(cv::Mat &buffer, uint32_t timeoutMs)
 
     return true;
 }
+
 bool AlliedVisionAlvium::startAcquisition(
     int bufferCount, 
     std::function<void(cv::Mat, uint64_t, uint64_t, void*)> newFrameCallback, 
@@ -534,7 +551,7 @@ bool AlliedVisionAlvium::getId(std::string &buffer)
     return true;
 }
 
-bool AlliedVisionAlvium::getFrameRateHz(std::string &buffer)
+bool AlliedVisionAlvium::getFrameRate(std::string &buffer)
 {
     if(false == this->getFeature("AcquisitionFrameRate", buffer))
     {
@@ -544,31 +561,8 @@ bool AlliedVisionAlvium::getFrameRateHz(std::string &buffer)
     return true;
 }
 
-bool AlliedVisionAlvium::getExposureUs(std::string &buffer)
-{
-    if(false == this->getFeature("ExposureTime", buffer))
-    {
-        return false;
-    }
-    else
-    {
-        return true;
-    }
-}
 
-bool AlliedVisionAlvium::getGainDb(std::string &buffer)
-{
-    if(false == this->getFeature("Gain", buffer))
-    {
-        return false;
-    }
-    else
-    {
-        return true;
-    }
-}
-
-bool AlliedVisionAlvium::setFrameRateHz(std::string buffer)
+bool AlliedVisionAlvium::setFrameRate(std::string buffer)
 {
     if(false == this->setFeature("AcquisitionFrameRateEnable", "true"))
     {   
@@ -580,68 +574,6 @@ bool AlliedVisionAlvium::setFrameRateHz(std::string buffer)
     }
     
     return true;
-}
-
-bool AlliedVisionAlvium::setExposureUs(std::string buffer)
-{
-    if(false == this->setFeature("ExposureTime", buffer))
-    {
-        return false;
-    }
-    else
-    {
-        return true;
-    }
-}
-
-bool AlliedVisionAlvium::setGainDb(std::string buffer)
-{
-    if(false == this->setFeature("Gain", buffer))
-    {
-        return false;
-    }
-    else
-    {
-        return true;
-    }
-}
-
-
-bool AlliedVisionAlvium::getBitDepth(std::string &buffer)
-{
-    if(false == this->getFeature("PixelFormat", buffer))
-    {
-        return false;
-    }
-    else
-    {
-        return true;
-    }
-}
-
-bool AlliedVisionAlvium::getTemperature(std::string &buffer)
-{
-    if(false == this->getFeature("DeviceTemperature", buffer))
-    {
-        return false;
-    }
-    else
-    {
-        return true;
-    }
-}
-
-
-bool AlliedVisionAlvium::setBitDepth(std::string buffer)
-{
-    if(false == this->setFeature("PixelFormat", buffer))
-    {
-        return false;
-    }
-    else
-    {
-        return true;
-    }
 }
 
 bool AlliedVisionAlvium::setDeviceThroughputLimit(std::string buffer)
@@ -660,85 +592,6 @@ bool AlliedVisionAlvium::setDeviceThroughputLimit(std::string buffer)
     if(false == this->setFeature("DeviceLinkThroughputLimitMode", "On"))
     {
         std::cerr << "AlliedVisionAlvium: Could not set DeviceLinkThroughputLimitMode On" << std::endl;
-        return false;
-    }
-
-    return true;
-}
-
-
-bool AlliedVisionAlvium::loadSettingsFile(std::string filepath)
-{
-    VmbError_t err;
-    VmbFeaturePersistSettings_t settings;
-    settings.loggingLevel = VmbLogLevelAll;
-    settings.maxIterations = 10;
-    settings.persistType = VmbFeaturePersistAll;
-    settings.modulePersistFlags = VmbModulePersistFlagsAll;
-    err = this->camera->LoadSettings(filepath.c_str(), &settings);
-
-    if(VmbErrorSuccess != err)
-    {
-        std::cout << "Error loading settings: " << err << " - " << filepath << std::endl;
-        return false;
-    }
-
-    return true;
-}
-
-bool AlliedVisionAlvium::saveSettingsFile(std::string filepath)
-{
-    VmbError_t err;
-    VmbFeaturePersistSettings_t settings;
-    settings.loggingLevel = VmbLogLevelError;
-    settings.maxIterations = 10;
-    settings.persistType = VmbFeaturePersistAll;
-    settings.modulePersistFlags = VmbModulePersistFlagsAll;
-    err = this->camera->SaveSettings(filepath.c_str(), &settings);
-
-    if(VmbErrorSuccess != err)
-    {
-        std::cout << "Error saving settings: " << err << " - " << filepath << std::endl;
-        return false;
-    }
-
-    return true;
-}
-
-bool AlliedVisionAlvium::loadConfiguration1(void)
-{
-    if(false == this->setFeature("UserSetDefault", "UserSet1"))
-    {
-        return false;
-    }
-    
-    if(false == this->setFeature("UserSetSelector", "UserSet1"))
-    {
-        return false;
-    }
-
-    if(false == this->runCommand("UserSetLoad"))
-    {
-        return false;
-    }
-
-    return true;
-}
-
-bool AlliedVisionAlvium::saveConfiguration1(void)
-{
-    if(false == this->setFeature("UserSetDefault", "UserSet1"))
-    {
-        return false;
-    }
-    
-    if(false == this->setFeature("UserSetSelector", "UserSet1"))
-    {
-        return false;
-    }
-
-    if(false == this->runCommand("UserSetSave"))
-    {
         return false;
     }
 
