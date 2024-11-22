@@ -210,7 +210,7 @@ public:
         void *arg);
     bool stopAcquisition(void);
 
-    bool getSingleFrame(cv::Mat &buffer, uint32_t timeoutMs);
+    bool getSingleFrame(cv::Mat &buffer, uint64_t &cameraFrameID, uint64_t &cameraTimestamp, uint32_t timeoutMs);
 
     bool setDeviceThroughputLimit(std::string buffer);
 
@@ -400,7 +400,7 @@ bool AlliedVisionAlvium::disconnect(void)
     return this->cameraOpen;
 }
 
-bool AlliedVisionAlvium::getSingleFrame(cv::Mat &buffer, uint32_t timeoutMs)
+bool AlliedVisionAlvium::getSingleFrame(cv::Mat &buffer, uint64_t &cameraFrameID, uint64_t &cameraTimestamp, uint32_t timeoutMs)
 {
     VmbCPP::FramePtr frame;
     VmbError_t err;
@@ -548,6 +548,7 @@ bool AlliedVisionAlvium::getSingleFrame(cv::Mat &buffer, uint32_t timeoutMs)
             width,
             openCvType,
             destinationImage.Data);
+        free(destinationImage.Data);
         break;
     }
     default:
@@ -561,7 +562,6 @@ bool AlliedVisionAlvium::getSingleFrame(cv::Mat &buffer, uint32_t timeoutMs)
     /* returns the frame buffer back to the queue */
     this->camera->QueueFrame(frame);
     buffer = image.clone();
-    free(destinationImage.Data);
 
     return true;
 }
