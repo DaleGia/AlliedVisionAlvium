@@ -12,15 +12,17 @@
 class FrameObserver : public VmbCPP::IFrameObserver
 {
 public:
-    FrameObserver(VmbCPP::CameraPtr camera) : IFrameObserver(camera) {
-                                              };
+    FrameObserver(VmbCPP::CameraPtr camera) : IFrameObserver(camera)
+    {
+    };
 
     FrameObserver(
         VmbCPP::CameraPtr camera,
-        std::function<void(cv::Mat, uint64_t, uint64_t, void *)> imageCallback,
-        void *arg) : IFrameObserver(camera), callback(imageCallback), argument(arg) {
+        std::function<void(cv::Mat, uint64_t, uint64_t, void*)> imageCallback,
+        void* arg) : IFrameObserver(camera), callback(imageCallback), argument(arg)
+    {
 
-                     };
+    };
 
     void FrameReceived(const VmbCPP::FramePtr frame)
     {
@@ -32,7 +34,7 @@ public:
         uint32_t width;
         uint32_t bufferSize;
         cv::Mat image;
-        uint8_t *data;
+        uint8_t* data;
         VmbUint64_t timestamp;
         VmbUint64_t frameID;
         /* These are used for unpacking images if need be */
@@ -177,8 +179,51 @@ public:
     };
 
 private:
-    std::function<void(cv::Mat, uint64_t, uint64_t, void *)> callback = nullptr;
-    void *argument = nullptr;
+    std::function<void(cv::Mat, uint64_t, uint64_t, void*)> callback = nullptr;
+    void* argument = nullptr;
+};
+
+/**
+ * \brief IFrameObserver implementation for asynchronous image acquisition
+ */
+class EventObserver : public VmbCPP::IFeatureObserver
+{
+public:
+    EventObserver() : VmbCPP::IFeatureObserver()
+    {
+    };
+
+    EventObserver(
+        std::function<void(std::string, uint64_t, void*)>  eventCallback,
+        void* arg) : VmbCPP::IFeatureObserver(), callback(eventCallback), argument(arg)
+    {
+    };
+
+    void FeatureChanged(const VmbCPP::FeaturePtr& feature)
+    {
+        std::string featureName("");
+        VmbInt64_t featureValue;
+
+        // Here an action can be perform based on the event that has occured
+        if (feature != nullptr)
+        {
+
+
+            feature->GetName(featureName);
+            feature->GetValue(featureValue);
+
+            std::cout << "Event " << featureName << " occurred. Value:" << featureValue << std::endl;
+        }
+
+        if (nullptr != this->callback)
+        {
+            this->callback(featureName, (uint64_t)featureValue, this->argument);
+        }
+    };
+
+private:
+    std::function<void(std::string, uint64_t, void*)> callback = nullptr;
+    void* argument = nullptr;
 };
 
 class AlliedVisionAlvium
@@ -197,25 +242,30 @@ public:
 
     bool getFeature(
         std::string featureName,
-        std::string &featureValue);
+        std::string& featureValue);
     bool setFeature(
         std::string featureName,
         std::string featureValue);
+
+    bool activateEvent(
+        std::string eventName,
+        std::function<void(std::string, uint64_t, void*)> eventCallback,
+        void* arg);
 
     bool runCommand(std::string command);
 
     bool startAcquisition(
         int bufferCount,
-        std::function<void(cv::Mat, uint64_t, uint64_t, void *)> newFrameCallback,
-        void *arg);
+        std::function<void(cv::Mat, uint64_t, uint64_t, void*)> newFrameCallback,
+        void* arg);
     bool stopAcquisition(void);
 
-    bool getSingleFrame(cv::Mat &buffer, uint64_t &cameraFrameID, uint64_t &cameraTimestamp, uint32_t timeoutMs);
+    bool getSingleFrame(cv::Mat& buffer, uint64_t& cameraFrameID, uint64_t& cameraTimestamp, uint32_t timeoutMs);
 
     bool setDeviceThroughputLimit(std::string buffer);
 
 private:
-    bool getCameraNameFromDeviceIdList(std::string deviceID, std::string &cameraName);
+    bool getCameraNameFromDeviceIdList(std::string deviceID, std::string& cameraName);
 
     VmbCPP::CameraPtr camera;
     bool cameraOpen = false;
@@ -233,18 +283,17 @@ AlliedVisionAlvium::~AlliedVisionAlvium()
         {
             this->disconnect();
         }
-    }
-    catch (const std::exception &e)
+    } catch (const std::exception& e)
     {
         std::cerr << e.what() << '\n';
     }
 }
 
-bool AlliedVisionAlvium::getCameraNameFromDeviceIdList(std::string cameraName, std::string &deviceID)
+bool AlliedVisionAlvium::getCameraNameFromDeviceIdList(std::string cameraName, std::string& deviceID)
 {
     VmbCPP::CameraPtrVector cameras;
 
-    VmbCPP::VmbSystem &vimbax =
+    VmbCPP::VmbSystem& vimbax =
         VmbCPP::VmbSystem::GetInstance();
 
     VmbErrorType err;
@@ -264,7 +313,7 @@ bool AlliedVisionAlvium::getCameraNameFromDeviceIdList(std::string cameraName, s
         std::cerr << "AlliedVisionAlvium::getCameraList: Unable to detect any cameras" << std::endl;
         return false;
     }
-    for (VmbCPP::CameraPtrVector ::iterator iter = cameras.begin(); cameras.end() != iter; ++iter)
+    for (VmbCPP::CameraPtrVector::iterator iter = cameras.begin(); cameras.end() != iter; ++iter)
     {
         std::string name;
         std::string ID;
@@ -292,7 +341,7 @@ bool AlliedVisionAlvium::connect()
     VmbErrorType err;
     VmbCPP::CameraPtrVector cameras;
     std::string cameraID;
-    VmbCPP::VmbSystem &vimbax =
+    VmbCPP::VmbSystem& vimbax =
         VmbCPP::VmbSystem::GetInstance();
 
     /* Start the API, get and open cameras */
@@ -350,7 +399,7 @@ bool AlliedVisionAlvium::connectByDeviceID(std::string deviceID)
 {
 
     VmbErrorType err;
-    VmbCPP::VmbSystem &vimbax =
+    VmbCPP::VmbSystem& vimbax =
         VmbCPP::VmbSystem::GetInstance();
 
     /* Start the API, get and open cameras */
@@ -400,7 +449,7 @@ bool AlliedVisionAlvium::disconnect(void)
     return this->cameraOpen;
 }
 
-bool AlliedVisionAlvium::getSingleFrame(cv::Mat &buffer, uint64_t &cameraFrameID, uint64_t &cameraTimestamp, uint32_t timeoutMs)
+bool AlliedVisionAlvium::getSingleFrame(cv::Mat& buffer, uint64_t& cameraFrameID, uint64_t& cameraTimestamp, uint32_t timeoutMs)
 {
     VmbCPP::FramePtr frame;
     VmbError_t err;
@@ -411,7 +460,7 @@ bool AlliedVisionAlvium::getSingleFrame(cv::Mat &buffer, uint64_t &cameraFrameID
     uint32_t width;
     uint32_t bufferSize;
     cv::Mat image;
-    uint8_t *data;
+    uint8_t* data;
     VmbUint64_t timestamp;
     VmbUint64_t frameID;
     /* These are used for unpacking images if need be */
@@ -568,8 +617,8 @@ bool AlliedVisionAlvium::getSingleFrame(cv::Mat &buffer, uint64_t &cameraFrameID
 
 bool AlliedVisionAlvium::startAcquisition(
     int bufferCount,
-    std::function<void(cv::Mat, uint64_t, uint64_t, void *)> newFrameCallback,
-    void *arg)
+    std::function<void(cv::Mat, uint64_t, uint64_t, void*)> newFrameCallback,
+    void* arg)
 {
     VmbErrorType err;
     err = camera->StartContinuousImageAcquisition(
@@ -688,7 +737,7 @@ bool AlliedVisionAlvium::setFeature(
 
 bool AlliedVisionAlvium::getFeature(
     std::string featureName,
-    std::string &featureValue)
+    std::string& featureValue)
 {
     VmbCPP::FeaturePtr feature;
     VmbError_t error;
@@ -765,6 +814,66 @@ bool AlliedVisionAlvium::getFeature(
     else
     {
         std::cerr << "Unknown feature datatype: " << dataType << " for " << featureName << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
+bool AlliedVisionAlvium::activateEvent(
+    std::string eventName,
+    std::function<void(std::string, uint64_t, void*)> eventCallback,
+    void* arg)
+{
+    VmbCPP::FeaturePtr pFeature;
+
+    /* First activate the event */
+
+    // EventSelector is used to specify the particular Event to control
+    VmbCPP::FeaturePtr feature;
+    VmbErrorType err = this->camera->GetFeatureByName("EventSelector", feature);
+    if (err != VmbErrorSuccess)
+    {
+        return false;
+    }
+    // Configure the AcquisitionStart camera event. 
+    err = feature->SetValue(eventName.c_str());
+    if (err != VmbErrorSuccess)
+    {
+        return false;
+    }
+
+
+    // EventNotification is used to enable/disable the notification of the event specified by EventSelector.
+    err = this->camera->GetFeatureByName("EventNotification", feature);
+    if (err != VmbErrorSuccess)
+    {
+        return false;
+    }
+    else
+    {
+        err = feature->SetValue("On");
+    }
+
+    /* Now register the event */
+    std::cout << "Registering observer for " << eventName << " feature." << std::endl;
+    err = this->camera->GetFeatureByName(eventName.c_str(), pFeature);
+
+    if (err == VmbErrorSuccess)
+    {
+        // register a callback function to be notified that the event happened
+        err = pFeature->RegisterObserver(
+            VmbCPP::IFeatureObserverPtr(new EventObserver(eventCallback, arg)));
+
+        if (err != VmbErrorSuccess)
+        {
+            std::cout << "Could not register observer. Error code: " << err << "\n";
+            return false;
+        }
+    }
+    else
+    {
+        std::cout << "Could not register observer. Could not get feature: " << eventName << std::endl;
         return false;
     }
 
