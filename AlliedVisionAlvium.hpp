@@ -13,7 +13,7 @@ public:
 
     FrameObserver(
         VmbCPP::CameraPtr camera,
-        std::function<void(cv::Mat, uint64_t, uint64_t, void *)> imageCallback,
+        std::function<void(cv::Mat, time_t, long, uint64_t, uint64_t, void *)> imageCallback,
         void *arg) : IFrameObserver(camera), callback(imageCallback), argument(arg) {
 
                      };
@@ -21,7 +21,7 @@ public:
     void FrameReceived(const VmbCPP::FramePtr frame);
 
 private:
-    std::function<void(cv::Mat, uint64_t, uint64_t, void *)> callback = nullptr;
+    std::function<void(cv::Mat, time_t, long, uint64_t, uint64_t, void *)> callback = nullptr;
     void *argument = nullptr;
 };
 
@@ -35,14 +35,14 @@ public:
                       };
 
     EventObserver(
-        std::function<void(std::string, uint64_t, time_t, time_t, void *)> eventCallback,
+        std::function<void(std::string, uint64_t, time_t, long, void *)> eventCallback,
         void *arg) : VmbCPP::IFeatureObserver(), callback(eventCallback), argument(arg) {
                      };
 
     void FeatureChanged(const VmbCPP::FeaturePtr &feature);
 
 private:
-    std::function<void(std::string, uint64_t, time_t, time_t, void *)> callback = nullptr;
+    std::function<void(std::string, uint64_t, time_t, long, void *)> callback = nullptr;
     void *argument = nullptr;
 };
 
@@ -83,8 +83,9 @@ public:
 
     bool startAcquisition(
         int bufferCount,
-        std::function<void(cv::Mat, uint64_t, uint64_t, void *)> newFrameCallback,
+        std::function<void(cv::Mat, time_t, time_t, uint64_t, uint64_t, void *)> newFrameCallback,
         void *arg);
+
     bool stopAcquisition(void);
 
     bool getSingleFrame(cv::Mat &buffer, uint64_t &cameraFrameID, uint64_t &cameraTimestamp, uint32_t timeoutMs);

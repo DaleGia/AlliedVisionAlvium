@@ -6,6 +6,9 @@
 
 void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
 {
+    timespec ts;
+    auto now = clock_gettime(CLOCK_REALTIME, &ts);
+
     VmbError_t err;
     int openCvType;
     VmbPixelFormatType format;
@@ -15,7 +18,7 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
     uint32_t bufferSize;
     cv::Mat image;
     uint8_t *data;
-    VmbUint64_t timestamp;
+    VmbUint64_t cameraTimestamp;
     VmbUint64_t frameID;
     /* These are used for unpacking images if need be */
     VmbImage sourceImage;
@@ -53,7 +56,7 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
     frame->GetPixelFormat(format);
     frame->GetHeight(height);
     frame->GetWidth(width);
-    frame->GetTimestamp(timestamp);
+    frame->GetTimestamp(cameraTimestamp);
     frame->GetFrameID(frameID);
     frame->GetBufferSize(bufferSize);
     frame->GetBuffer(data);
@@ -154,7 +157,7 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
     m_pCamera->QueueFrame(frame);
     if (nullptr != this->callback)
     {
-        this->callback(image, timestamp, frameID, this->argument);
+        this->callback(image, ts.tv_sec, ts.tv_nsec, cameraTimestamp, frameID, this->argument);
     }
 };
 
@@ -542,7 +545,7 @@ bool AlliedVisionAlvium::getSingleFrame(cv::Mat &buffer, uint64_t &cameraFrameID
 
 bool AlliedVisionAlvium::startAcquisition(
     int bufferCount,
-    std::function<void(cv::Mat, uint64_t, uint64_t, void *)> newFrameCallback,
+    std::function<void(cv::Mat, time_t, time_t, uint64_t, uint64_t, void *)> newFrameCallback,
     void *arg)
 {
     VmbErrorType err;
