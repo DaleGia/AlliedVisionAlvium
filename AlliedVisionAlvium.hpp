@@ -2,6 +2,23 @@
 #include "VmbCPP/VmbCPP.h"
 #include "VmbImageTransform/VmbTransform.h"
 
+class AlliedVisionAlviumFrameData
+{
+public:
+    uint32_t height;
+    uint32_t width;
+    uint32_t offsetX;
+    uint32_t offsetY;
+    uint64_t frameId;
+    uint64_t timestamp;
+    time_t systemTimeSec;
+    long systemTimeNSec;
+
+    double exposureTime;
+    double gain;
+
+    cv::Mat image;
+};
 /**
  * \brief IFrameObserver implementation for asynchronous image acquisition
  */
@@ -13,7 +30,7 @@ public:
 
     FrameObserver(
         VmbCPP::CameraPtr camera,
-        std::function<void(cv::Mat, time_t, long, uint64_t, uint64_t, void *)> imageCallback,
+        std::function<void(AlliedVisionAlviumFrameData &, void *)> imageCallback,
         void *arg) : IFrameObserver(camera), callback(imageCallback), argument(arg) {
 
                      };
@@ -21,8 +38,70 @@ public:
     void FrameReceived(const VmbCPP::FramePtr frame);
 
 private:
-    std::function<void(cv::Mat, time_t, long, uint64_t, uint64_t, void *)> callback = nullptr;
+    std::function<void(AlliedVisionAlviumFrameData &, void *)> callback = nullptr;
     void *argument = nullptr;
+
+    VmbErrorType GetFeatureValueAsString(VmbCPP::FeaturePtr feat, std::string &val)
+    {
+        VmbErrorType err;
+        VmbFeatureDataType type;
+
+        err = feat->GetDataType(type);
+
+        if (err != VmbErrorSuccess)
+        {
+            return err;
+        }
+
+        switch (type)
+        {
+        case VmbFeatureDataBool:
+        {
+            VmbBool_t boolVal;
+            if (feat->GetValue(boolVal) == VmbErrorSuccess)
+            {
+                val = boolVal ? "true" : "false";
+                return VmbErrorSuccess;
+            }
+            break;
+        }
+        case VmbFeatureDataInt:
+        {
+            VmbInt64_t intVal;
+            if (feat->GetValue(intVal) == VmbErrorSuccess)
+            {
+                val = std::to_string(intVal);
+                return VmbErrorSuccess;
+            }
+            break;
+        }
+        case VmbFeatureDataFloat:
+        {
+            double floatVal;
+            if (feat->GetValue(floatVal) == VmbErrorSuccess)
+            {
+                val = std::to_string(floatVal);
+                return VmbErrorSuccess;
+            }
+            break;
+        }
+        case VmbFeatureDataEnum:
+        case VmbFeatureDataString:
+        {
+            std::string stringVal;
+            if (feat->GetValue(stringVal) == VmbErrorSuccess)
+            {
+                val = stringVal;
+                return VmbErrorSuccess;
+            }
+            break;
+        }
+        default:
+            break;
+        }
+
+        return VmbErrorNotSupported;
+    }
 };
 
 /**
@@ -83,7 +162,7 @@ public:
 
     bool startAcquisition(
         int bufferCount,
-        std::function<void(cv::Mat, time_t, time_t, uint64_t, uint64_t, void *)> newFrameCallback,
+        std::function<void(AlliedVisionAlviumFrameData &, void *)> newFrameCallback,
         void *arg);
 
     bool stopAcquisition(void);

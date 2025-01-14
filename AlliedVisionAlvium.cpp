@@ -8,18 +8,17 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
 {
     timespec ts;
     auto now = clock_gettime(CLOCK_REALTIME, &ts);
+    AlliedVisionAlviumFrameData frameData;
+    frameData.systemTimeSec = ts.tv_sec;
+    frameData.systemTimeNSec = ts.tv_nsec;
 
     VmbError_t err;
     int openCvType;
     VmbPixelFormatType format;
     VmbFrameStatusType status = VmbFrameStatusComplete;
-    uint32_t height;
-    uint32_t width;
+
     uint32_t bufferSize;
-    cv::Mat image;
     uint8_t *data;
-    VmbUint64_t cameraTimestamp;
-    VmbUint64_t frameID;
     /* These are used for unpacking images if need be */
     VmbImage sourceImage;
     VmbImage destinationImage;
@@ -53,21 +52,78 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
         }
     }
 
+    /* Get all of the information about the frame including the chunk data */
+
     frame->GetPixelFormat(format);
-    frame->GetHeight(height);
-    frame->GetWidth(width);
-    frame->GetTimestamp(cameraTimestamp);
-    frame->GetFrameID(frameID);
+
     frame->GetBufferSize(bufferSize);
     frame->GetBuffer(data);
+
+    frame->GetHeight(frameData.height);
+    frame->GetWidth(frameData.width);
+    frame->GetOffsetX(frameData.offsetX);
+    frame->GetOffsetY(frameData.offsetY);
+    VmbUint64_t cameraTimestamp;
+    frame->GetTimestamp(cameraTimestamp);
+    frameData.timestamp = cameraTimestamp;
+    VmbUint64_t frameID;
+    frame->GetFrameID(frameID);
+    // Access the Chunk data of the incoming frame. Chunk data accesible inside lambda function
+    err = frame->AccessChunkData(
+        [this, &frameData](VmbCPP::ChunkFeatureContainerPtr &chunkFeatures) -> VmbErrorType
+        {
+            VmbCPP::FeaturePtr feat;
+            VmbErrorType err;
+
+            // Get a specific Chunk feature via the FeatureContainer chunkFeatures
+            err = chunkFeatures->GetFeatureByName("ExposureTime", feat);
+            if (err != VmbErrorSuccess)
+            {
+                std::cerr << "Could not get Exposure time from frame ChunkData" << std::endl;
+            }
+
+            // The Chunk feature can be read like any other feature
+            std::string val;
+            err = GetFeatureValueAsString(feat, val);
+            if (err != VmbErrorSuccess)
+            {
+                std::cerr << "Could not get Exposure feature value as string from frame ChunkData" << std::endl;
+            }
+            else
+            {
+                frameData.exposureTime = std::stod(val);
+            }
+
+            // Get a specific Chunk feature via the FeatureContainer chunkFeatures
+            err = chunkFeatures->GetFeatureByName("Gain", feat);
+            if (err != VmbErrorSuccess)
+            {
+                std::cerr << "Could not get Gain from frame ChunkData" << std::endl;
+            }
+
+            // The Chunk feature can be read like any other feature
+            val = "";
+            err = GetFeatureValueAsString(feat, val);
+            if (err != VmbErrorSuccess)
+            {
+                std::cerr << "Could not get Gain feature value as string from frame ChunkData" << std::endl;
+            }
+            else
+            {
+                frameData.gain = std::stod(val);
+            }
+
+            return VmbErrorSuccess;
+        });
+
     switch (format)
     {
     case VmbPixelFormatMono8:
     {
         openCvType = CV_8UC1;
-        image = cv::Mat(
-            height,
-            width,
+        frameData.image = cv::Mat(
+            frameData.height,
+            frameData.width,
             openCvType,
             data);
         break;
@@ -75,9 +131,9 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
     case VmbPixelFormatMono10:
     {
         openCvType = CV_16UC1;
-        image = cv::Mat(
-            height,
-            width,
+        frameData.image = cv::Mat(
+            frameData.height,
+            frameData.width,
             openCvType,
             data);
         break;
@@ -85,9 +141,9 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
     case VmbPixelFormatMono12:
     {
         openCvType = CV_16UC1;
-        image = cv::Mat(
-            height,
-            width,
+        frameData.image = cv::Mat(
+            frameData.height,
+            frameData.width,
             openCvType,
             data);
         break;
@@ -101,7 +157,7 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
         /* The 2 is because it needs to fit 16 bit*/
         sourceImage.Data = data;
         destinationImage.Size = sizeof(destinationImage);
-        destinationImage.Data = malloc(width * height * 2);
+        destinationImage.Data = malloc(frameData.width * frameData.height * 2);
         if (nullptr == destinationImage.Data)
         {
             std::cerr << "Could not create destination buffer for unpacking" << std::endl;
@@ -110,8 +166,8 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
 
         VmbError_t error = VmbSetImageInfoFromPixelFormat(
             VmbPixelFormatMono12p,
-            width,
-            height,
+            frameData.width,
+            frameData.height,
             &sourceImage);
         if (VmbErrorSuccess != error)
         {
@@ -120,8 +176,8 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
         }
         error = VmbSetImageInfoFromInputParameters(
             VmbPixelFormatMono12,
-            width,
-            height,
+            frameData.width,
+            frameData.height,
             VmbPixelLayoutMono,
             16,
             &destinationImage);
@@ -138,11 +194,12 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
         {
             std::cerr << "Could not unpack image: " << error << std::endl;
         }
-        image = cv::Mat(
-            height,
-            width,
-            openCvType,
-            destinationImage.Data);
+        frameData.image = cv::Mat(
+                              frameData.height,
+                              frameData.width,
+                              openCvType,
+                              destinationImage.Data)
+                              .clone();
         free(destinationImage.Data);
         break;
     }
@@ -157,7 +214,7 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
     m_pCamera->QueueFrame(frame);
     if (nullptr != this->callback)
     {
-        this->callback(image, ts.tv_sec, ts.tv_nsec, cameraTimestamp, frameID, this->argument);
+        this->callback(frameData, this->argument);
     }
 };
 
@@ -314,6 +371,39 @@ bool AlliedVisionAlvium::connect()
         std::cerr << "Unable to connect to camera " << cameraID << ": " << err << std::endl;
         this->cameraOpen = false;
         return false;
+    }
+
+    /* Enable the chunk data for different things so we can embedd them in the image data*/
+    if (false == this->setFeature("ChunkEnable", "true"))
+    {
+        std::cerr << "Unable to set ChunkEnable to true" << std::endl;
+    }
+
+    if (false == this->setFeature("ChunkSelector", "ExposureTime"))
+    {
+        std::cerr << "Unable to set ChunkSelector to ExposureTime" << std::endl;
+    }
+    else if (false == this->setFeature("ChunkModeActive", "true"))
+    {
+        std::cerr << "Unable to set ChunkModeActive ExposureTime to true" << std::endl;
+    }
+
+    if (false == this->setFeature("ChunkSelector", "Gain"))
+    {
+        std::cerr << "Unable to set ChunkSelector to Gain" << std::endl;
+    }
+    else if (false == this->setFeature("ChunkModeActive", "true"))
+    {
+        std::cerr << "Unable to set ChunkModeActive Gain to true" << std::endl;
+    }
+
+    if (false == this->setFeature("ChunkSelector", "Gain"))
+    {
+        std::cerr << "Unable to set ChunkSelector to Gain" << std::endl;
+    }
+    else if (false == this->setFeature("ChunkModeActive", "true"))
+    {
+        std::cerr << "Unable to set ChunkModeActive Gain to true" << std::endl;
     }
 
     std::cout << "Connected to " << cameraID << std::endl;
@@ -545,7 +635,7 @@ bool AlliedVisionAlvium::getSingleFrame(cv::Mat &buffer, uint64_t &cameraFrameID
 
 bool AlliedVisionAlvium::startAcquisition(
     int bufferCount,
-    std::function<void(cv::Mat, time_t, time_t, uint64_t, uint64_t, void *)> newFrameCallback,
+    std::function<void(AlliedVisionAlviumFrameData &, void *)> newFrameCallback,
     void *arg)
 {
     VmbErrorType err;
