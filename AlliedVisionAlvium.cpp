@@ -1,6 +1,3 @@
-#ifndef ALLIEDVISIONALVIUM_H_
-#define ALLIEDVISIONALVIUM_H_
-
 #include "AlliedVisionAlvium.hpp"
 #include <iostream>
 
@@ -18,7 +15,7 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
     VmbFrameStatusType status = VmbFrameStatusComplete;
 
     uint32_t bufferSize;
-    uint8_t *data;
+    uint8_t* data;
     /* These are used for unpacking images if need be */
     VmbImage sourceImage;
     VmbImage destinationImage;
@@ -70,7 +67,7 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
     frame->GetFrameID(frameID);
     // Access the Chunk data of the incoming frame. Chunk data accesible inside lambda function
     err = frame->AccessChunkData(
-        [this, &frameData](VmbCPP::ChunkFeatureContainerPtr &chunkFeatures) -> VmbErrorType
+        [this, &frameData](VmbCPP::ChunkFeatureContainerPtr& chunkFeatures) -> VmbErrorType
         {
             VmbCPP::FeaturePtr feat;
             VmbErrorType err;
@@ -195,11 +192,11 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
             std::cerr << "Could not unpack image: " << error << std::endl;
         }
         frameData.image = cv::Mat(
-                              frameData.height,
-                              frameData.width,
-                              openCvType,
-                              destinationImage.Data)
-                              .clone();
+            frameData.height,
+            frameData.width,
+            openCvType,
+            destinationImage.Data)
+            .clone();
         free(destinationImage.Data);
         break;
     }
@@ -218,7 +215,7 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
     }
 };
 
-void EventObserver::FeatureChanged(const VmbCPP::FeaturePtr &feature)
+void EventObserver::FeatureChanged(const VmbCPP::FeaturePtr& feature)
 {
     timespec ts;
     auto now = clock_gettime(CLOCK_REALTIME, &ts);
@@ -254,8 +251,7 @@ void EventObserver::FeatureChanged(const VmbCPP::FeaturePtr &feature)
 }
 
 AlliedVisionAlvium::AlliedVisionAlvium()
-{
-}
+{}
 
 AlliedVisionAlvium::~AlliedVisionAlvium()
 {
@@ -266,17 +262,17 @@ AlliedVisionAlvium::~AlliedVisionAlvium()
             this->disconnect();
         }
     }
-    catch (const std::exception &e)
+    catch (const std::exception& e)
     {
         std::cerr << e.what() << '\n';
     }
 }
 
-bool AlliedVisionAlvium::getCameraNameFromDeviceIdList(std::string cameraName, std::string &deviceID)
+bool AlliedVisionAlvium::getCameraNameFromDeviceIdList(std::string cameraName, std::string& deviceID)
 {
     VmbCPP::CameraPtrVector cameras;
 
-    VmbCPP::VmbSystem &vimbax =
+    VmbCPP::VmbSystem& vimbax =
         VmbCPP::VmbSystem::GetInstance();
 
     VmbErrorType err;
@@ -324,7 +320,7 @@ bool AlliedVisionAlvium::connect()
     VmbErrorType err;
     VmbCPP::CameraPtrVector cameras;
     std::string cameraID;
-    VmbCPP::VmbSystem &vimbax =
+    VmbCPP::VmbSystem& vimbax =
         VmbCPP::VmbSystem::GetInstance();
 
     /* Start the API, get and open cameras */
@@ -415,7 +411,7 @@ bool AlliedVisionAlvium::connectByDeviceID(std::string deviceID)
 {
 
     VmbErrorType err;
-    VmbCPP::VmbSystem &vimbax =
+    VmbCPP::VmbSystem& vimbax =
         VmbCPP::VmbSystem::GetInstance();
 
     /* Start the API, get and open cameras */
@@ -465,7 +461,7 @@ bool AlliedVisionAlvium::disconnect(void)
     return this->cameraOpen;
 }
 
-bool AlliedVisionAlvium::getSingleFrame(cv::Mat &buffer, uint64_t &cameraFrameID, uint64_t &cameraTimestamp, uint32_t timeoutMs)
+bool AlliedVisionAlvium::getSingleFrame(cv::Mat& buffer, uint64_t& cameraFrameID, uint64_t& cameraTimestamp, uint32_t timeoutMs)
 {
     VmbCPP::FramePtr frame;
     VmbError_t err;
@@ -476,7 +472,7 @@ bool AlliedVisionAlvium::getSingleFrame(cv::Mat &buffer, uint64_t &cameraFrameID
     uint32_t width;
     uint32_t bufferSize;
     cv::Mat image;
-    uint8_t *data;
+    uint8_t* data;
     VmbUint64_t timestamp;
     VmbUint64_t frameID;
     /* These are used for unpacking images if need be */
@@ -635,8 +631,8 @@ bool AlliedVisionAlvium::getSingleFrame(cv::Mat &buffer, uint64_t &cameraFrameID
 
 bool AlliedVisionAlvium::startAcquisition(
     int bufferCount,
-    std::function<void(AlliedVisionAlviumFrameData &, void *)> newFrameCallback,
-    void *arg)
+    std::function<void(AlliedVisionAlviumFrameData&, void*)> newFrameCallback,
+    void* arg)
 {
     VmbErrorType err;
     err = camera->StartContinuousImageAcquisition(
@@ -644,6 +640,8 @@ bool AlliedVisionAlvium::startAcquisition(
         VmbCPP::IFrameObserverPtr(new FrameObserver(camera, newFrameCallback, arg)));
     if (VmbErrorSuccess != err)
     {
+        std::cerr << "Unable to start image Aqcuisition... " << err << std::endl;
+
         return false;
     }
 
@@ -755,7 +753,7 @@ bool AlliedVisionAlvium::setFeature(
 
 bool AlliedVisionAlvium::getFeature(
     std::string featureName,
-    std::string &featureValue)
+    std::string& featureValue)
 {
     VmbCPP::FeaturePtr feature;
     VmbError_t error;
@@ -846,9 +844,9 @@ bool AlliedVisionAlvium::activateEvent(
         int64_t,
         time_t,
         time_t,
-        void *)>
-        eventCallback,
-    void *arg)
+        void*)>
+    eventCallback,
+    void* arg)
 {
     VmbCPP::FeaturePtr pFeature;
     VmbError_t error;
