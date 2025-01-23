@@ -461,7 +461,11 @@ bool AlliedVisionAlvium::disconnect(void)
     return this->cameraOpen;
 }
 
-bool AlliedVisionAlvium::getSingleFrame(cv::Mat& buffer, uint64_t& cameraFrameID, uint64_t& cameraTimestamp, uint32_t timeoutMs)
+bool AlliedVisionAlvium::getSingleFrame(
+    cv::Mat& buffer,
+    uint64_t& cameraFrameID,
+    uint64_t& cameraTimestamp,
+    uint32_t timeoutMs)
 {
     VmbCPP::FramePtr frame;
     VmbError_t err;
@@ -641,7 +645,6 @@ bool AlliedVisionAlvium::startAcquisition(
     if (VmbErrorSuccess != err)
     {
         std::cerr << "Unable to start image Aqcuisition... " << err << std::endl;
-
         return false;
     }
 
@@ -941,5 +944,3 @@ bool AlliedVisionAlvium::runCommand(
 
     return true;
 }
-
-#endif // ALLIEDVISIONALVIUM_H_
