@@ -25,84 +25,22 @@ public:
 class FrameObserver : public VmbCPP::IFrameObserver
 {
 public:
-    FrameObserver(VmbCPP::CameraPtr camera) : IFrameObserver(camera)
-    {};
+    FrameObserver(VmbCPP::CameraPtr camera) : IFrameObserver(camera) {};
 
     FrameObserver(
         VmbCPP::CameraPtr camera,
-        std::function<void(AlliedVisionAlviumFrameData&, void*)> imageCallback,
-        void* arg) : IFrameObserver(camera), callback(imageCallback), argument(arg)
-    {
+        std::function<void(AlliedVisionAlviumFrameData &, void *)> imageCallback,
+        void *arg) : IFrameObserver(camera), callback(imageCallback), argument(arg) {
 
-    };
+                     };
 
     void FrameReceived(const VmbCPP::FramePtr frame);
 
 private:
-    std::function<void(AlliedVisionAlviumFrameData&, void*)> callback = nullptr;
-    void* argument = nullptr;
+    static VmbErrorType GetFeatureValueAsString(VmbCPP::FeaturePtr feat, std::string &val);
 
-    VmbErrorType GetFeatureValueAsString(VmbCPP::FeaturePtr feat, std::string& val)
-    {
-        VmbErrorType err;
-        VmbFeatureDataType type;
-
-        err = feat->GetDataType(type);
-
-        if (err != VmbErrorSuccess)
-        {
-            return err;
-        }
-
-        switch (type)
-        {
-        case VmbFeatureDataBool:
-        {
-            VmbBool_t boolVal;
-            if (feat->GetValue(boolVal) == VmbErrorSuccess)
-            {
-                val = boolVal ? "true" : "false";
-                return VmbErrorSuccess;
-            }
-            break;
-        }
-        case VmbFeatureDataInt:
-        {
-            VmbInt64_t intVal;
-            if (feat->GetValue(intVal) == VmbErrorSuccess)
-            {
-                val = std::to_string(intVal);
-                return VmbErrorSuccess;
-            }
-            break;
-        }
-        case VmbFeatureDataFloat:
-        {
-            double floatVal;
-            if (feat->GetValue(floatVal) == VmbErrorSuccess)
-            {
-                val = std::to_string(floatVal);
-                return VmbErrorSuccess;
-            }
-            break;
-        }
-        case VmbFeatureDataEnum:
-        case VmbFeatureDataString:
-        {
-            std::string stringVal;
-            if (feat->GetValue(stringVal) == VmbErrorSuccess)
-            {
-                val = stringVal;
-                return VmbErrorSuccess;
-            }
-            break;
-        }
-        default:
-            break;
-        }
-
-        return VmbErrorNotSupported;
-    }
+    std::function<void(AlliedVisionAlviumFrameData &, void *)> callback = nullptr;
+    void *argument = nullptr;
 };
 
 /**
@@ -111,19 +49,17 @@ private:
 class EventObserver : public VmbCPP::IFeatureObserver
 {
 public:
-    EventObserver() : VmbCPP::IFeatureObserver()
-    {};
+    EventObserver() : VmbCPP::IFeatureObserver() {};
 
     EventObserver(
-        std::function<void(std::string, uint64_t, time_t, long, void*)> eventCallback,
-        void* arg) : VmbCPP::IFeatureObserver(), callback(eventCallback), argument(arg)
-    {};
+        std::function<void(std::string, uint64_t, time_t, long, void *)> eventCallback,
+        void *arg) : VmbCPP::IFeatureObserver(), callback(eventCallback), argument(arg) {};
 
-    void FeatureChanged(const VmbCPP::FeaturePtr& feature);
+    void FeatureChanged(const VmbCPP::FeaturePtr &feature);
 
 private:
-    std::function<void(std::string, uint64_t, time_t, long, void*)> callback = nullptr;
-    void* argument = nullptr;
+    std::function<void(std::string, uint64_t, time_t, long, void *)> callback = nullptr;
+    void *argument = nullptr;
 };
 
 class AlliedVisionAlvium
@@ -133,7 +69,8 @@ public:
     ~AlliedVisionAlvium();
 
     bool connect();
-    bool connectByDeviceID(std::string deviceID);
+    bool connectByName(std::string cameraName);
+    std::vector<std::string> getNames(void);
 
     bool disconnect(void);
     bool isCameraOpen(void);
@@ -142,7 +79,7 @@ public:
 
     bool getFeature(
         std::string featureName,
-        std::string& featureValue);
+        std::string &featureValue);
     bool setFeature(
         std::string featureName,
         std::string featureValue);
@@ -155,25 +92,27 @@ public:
             int64_t,
             time_t,
             time_t,
-            void*)>
-        eventCallback,
-        void* arg);
+            void *)>
+            eventCallback,
+        void *arg);
 
     bool runCommand(std::string command);
 
     bool startAcquisition(
         int bufferCount,
-        std::function<void(AlliedVisionAlviumFrameData&, void*)> newFrameCallback,
-        void* arg);
+        std::function<void(AlliedVisionAlviumFrameData &, void *)> newFrameCallback,
+        void *arg);
 
     bool stopAcquisition(void);
 
-    bool getSingleFrame(AlliedVisionAlviumFrameData& buffer, uint32_t timeoutMs);
+    bool getSingleFrame(AlliedVisionAlviumFrameData &buffer, uint32_t timeoutMs);
 
     bool setDeviceThroughputLimit(std::string buffer);
 
 private:
-    bool getCameraNameFromDeviceIdList(std::string deviceID, std::string& cameraName);
+    static VmbErrorType GetFeatureValueAsString(VmbCPP::FeaturePtr feat, std::string &val);
+
+    bool getCameraNameFromDeviceIdList(std::string deviceID, std::string &cameraName);
 
     VmbCPP::CameraPtr camera;
     bool cameraOpen = false;
