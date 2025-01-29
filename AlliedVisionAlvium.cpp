@@ -6,8 +6,7 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
     timespec ts;
     auto now = clock_gettime(CLOCK_REALTIME, &ts);
     AlliedVisionAlviumFrameData frameData;
-    frameData.systemTimeSec = ts.tv_sec;
-    frameData.systemTimeNSec = ts.tv_nsec;
+
 
     VmbError_t err;
     int openCvType;
@@ -51,20 +50,24 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
 
     /* Get all of the information about the frame including the chunk data */
 
-    frame->GetPixelFormat(format);
+    VmbUint64_t cameraTimestamp;
+    VmbUint64_t frameID;
 
+    frame->GetPixelFormat(format);
     frame->GetBufferSize(bufferSize);
     frame->GetBuffer(data);
-
+    frame->GetTimestamp(cameraTimestamp);
+    frame->GetFrameID(frameID);
     frame->GetHeight(frameData.height);
     frame->GetWidth(frameData.width);
     frame->GetOffsetX(frameData.offsetX);
     frame->GetOffsetY(frameData.offsetY);
-    VmbUint64_t cameraTimestamp;
-    frame->GetTimestamp(cameraTimestamp);
+    frameData.systemTimeSec = ts.tv_sec;
+    frameData.systemTimeNSec = ts.tv_nsec;
     frameData.timestamp = cameraTimestamp;
-    VmbUint64_t frameID;
-    frame->GetFrameID(frameID);
+    frameData.frameId = frameID;
+
+
     // Access the Chunk data of the incoming frame. Chunk data accesible inside lambda function
     err = frame->AccessChunkData(
         [this, &frameData](VmbCPP::ChunkFeatureContainerPtr& chunkFeatures) -> VmbErrorType
@@ -462,9 +465,7 @@ bool AlliedVisionAlvium::disconnect(void)
 }
 
 bool AlliedVisionAlvium::getSingleFrame(
-    cv::Mat& buffer,
-    uint64_t& cameraFrameID,
-    uint64_t& cameraTimestamp,
+    AlliedVisionAlviumFrameData& buffer,
     uint32_t timeoutMs)
 {
     VmbCPP::FramePtr frame;
@@ -520,21 +521,77 @@ bool AlliedVisionAlvium::getSingleFrame(
         }
     }
 
+    VmbUint64_t cameraTimestamp;
+    VmbUint64_t frameID;
+
     frame->GetPixelFormat(format);
-    frame->GetHeight(height);
-    frame->GetWidth(width);
-    frame->GetTimestamp(timestamp);
-    cameraTimestamp = timestamp;
-    frame->GetFrameID(frameID);
-    cameraFrameID = frameID;
+
     frame->GetBufferSize(bufferSize);
     frame->GetBuffer(data);
+
+    frame->GetHeight(buffer.height);
+    frame->GetWidth(buffer.width);
+    frame->GetOffsetX(buffer.offsetX);
+    frame->GetOffsetY(buffer.offsetY);
+    frame->GetTimestamp(cameraTimestamp);
+    buffer.timestamp = cameraTimestamp;
+    frame->GetFrameID(frameID);
+    buffer.frameId = frameID;
+
+    // Access the Chunk data of the incoming frame. Chunk data accesible inside lambda function
+    err = frame->AccessChunkData(
+        [this, &buffer](VmbCPP::ChunkFeatureContainerPtr& chunkFeatures) -> VmbErrorType
+        {
+            VmbCPP::FeaturePtr feat;
+            VmbErrorType err;
+
+            // Get a specific Chunk feature via the FeatureContainer chunkFeatures
+            err = chunkFeatures->GetFeatureByName("ExposureTime", feat);
+            if (err != VmbErrorSuccess)
+            {
+                std::cerr << "Could not get Exposure time from frame ChunkData" << std::endl;
+            }
+
+            // The Chunk feature can be read like any other feature
+            std::string val;
+            err = GetFeatureValueAsString(feat, val);
+            if (err != VmbErrorSuccess)
+            {
+                std::cerr << "Could not get Exposure feature value as string from frame ChunkData" << std::endl;
+            }
+            else
+            {
+                buffer.exposureTime = std::stod(val);
+            }
+
+            // Get a specific Chunk feature via the FeatureContainer chunkFeatures
+            err = chunkFeatures->GetFeatureByName("Gain", feat);
+            if (err != VmbErrorSuccess)
+            {
+                std::cerr << "Could not get Gain from frame ChunkData" << std::endl;
+            }
+
+            // The Chunk feature can be read like any other feature
+            val = "";
+            err = GetFeatureValueAsString(feat, val);
+            if (err != VmbErrorSuccess)
+            {
+                std::cerr << "Could not get Gain feature value as string from frame ChunkData" << std::endl;
+            }
+            else
+            {
+                buffer.gain = std::stod(val);
+            }
+
+            return VmbErrorSuccess;
+        });
+
     switch (format)
     {
     case VmbPixelFormatMono8:
     {
         openCvType = CV_8UC1;
-        image = cv::Mat(
+        buffer.image = cv::Mat(
             height,
             width,
             openCvType,
@@ -544,7 +601,7 @@ bool AlliedVisionAlvium::getSingleFrame(
     case VmbPixelFormatMono10:
     {
         openCvType = CV_16UC1;
-        image = cv::Mat(
+        buffer.image = cv::Mat(
             height,
             width,
             openCvType,
@@ -554,7 +611,7 @@ bool AlliedVisionAlvium::getSingleFrame(
     case VmbPixelFormatMono12:
     {
         openCvType = CV_16UC1;
-        image = cv::Mat(
+        buffer.image = cv::Mat(
             height,
             width,
             openCvType,
@@ -610,7 +667,7 @@ bool AlliedVisionAlvium::getSingleFrame(
             std::cerr << "Could not unpack image: " << error << std::endl;
             return false;
         }
-        image = cv::Mat(
+        buffer.image = cv::Mat(
             height,
             width,
             openCvType,
@@ -628,7 +685,6 @@ bool AlliedVisionAlvium::getSingleFrame(
 
     /* returns the frame buffer back to the queue */
     this->camera->QueueFrame(frame);
-    buffer = image.clone();
 
     return true;
 }
