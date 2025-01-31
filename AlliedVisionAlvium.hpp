@@ -69,14 +69,14 @@ public:
     ~AlliedVisionAlvium();
 
     bool connect();
-    bool connectByName(std::string cameraName);
-    std::vector<std::string> getNames(void);
+    bool connectByUserId(std::string userId);
+    std::vector<std::string> getUserIds(void);
 
     bool disconnect(void);
     bool isCameraOpen(void);
 
     std::string getName(void);
-
+    std::string getUserId(void);
     bool getFeature(
         std::string featureName,
         std::string &featureValue);
@@ -112,8 +112,9 @@ public:
 private:
     static VmbErrorType GetFeatureValueAsString(VmbCPP::FeaturePtr feat, std::string &val);
 
-    bool getCameraNameFromDeviceIdList(std::string deviceID, std::string &cameraName);
-
+    bool getCameraUserIdFromDeviceIdList(
+        std::string cameraUserId,
+        std::string &deviceID);
     VmbCPP::CameraPtr camera;
     bool cameraOpen = false;
 };

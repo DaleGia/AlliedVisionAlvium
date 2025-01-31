@@ -270,7 +270,7 @@ AlliedVisionAlvium::~AlliedVisionAlvium()
     }
 }
 
-bool AlliedVisionAlvium::getCameraNameFromDeviceIdList(std::string cameraName, std::string &deviceID)
+bool AlliedVisionAlvium::getCameraUserIdFromDeviceIdList(std::string cameraUserId, std::string &deviceID)
 {
     VmbCPP::CameraPtrVector cameras;
 
@@ -283,31 +283,55 @@ bool AlliedVisionAlvium::getCameraNameFromDeviceIdList(std::string cameraName, s
 
     if (err != VmbErrorSuccess && err != VmbErrorAlready)
     {
-        std::cerr << "AlliedVisionAlvium::getCameraList: Unable to start up vimbax " << std::endl;
+        std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Unable to start up vimbax " << std::endl;
         return false;
     }
     else if (VmbErrorSuccess != vimbax.GetCameras(cameras))
     {
-        std::cerr << "AlliedVisionAlvium::getCameraList: Unable to detect any cameras" << std::endl;
+        std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Unable to detect any cameras" << std::endl;
         return false;
     }
 
-    for (VmbCPP::CameraPtrVector::iterator iter = cameras.begin(); cameras.end() != iter; ++iter)
+    for (auto camera : cameras)
     {
-        std::string name;
-        if (VmbErrorSuccess != (*iter)->GetName(name))
+        std::string userId;
+        VmbCPP::FeaturePtr feature;
+        if (VmbErrorSuccess != camera->Open(VmbAccessModeRead))
         {
-            std::cerr << "AlliedVisionAlvium::getCameraList: Unable to get camera name" << std::endl;
+            std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Unable to open camera" << std::endl;
+            camera->Close();
             continue;
         }
 
-        if (name != cameraName)
+        if (VmbErrorSuccess != camera->GetFeatureByName("DeviceUserID", feature))
         {
+            std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Could not get feature" << std::endl;
+            camera->Close();
             continue;
         }
 
-        if (VmbErrorSuccess == (*iter)->GetID(deviceID))
+        if (VmbErrorSuccess != this->GetFeatureValueAsString(feature, userId))
         {
+            std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Unable to get userdeviceid" << std::endl;
+            camera->Close();
+            continue;
+        }
+
+        if (userId != cameraUserId)
+        {
+            camera->Close();
+            continue;
+        }
+
+        if (VmbErrorSuccess != camera->GetID(deviceID))
+        {
+            std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Unable to get device Id" << std::endl;
+            camera->Close();
+            continue;
+        }
+        else
+        {
+            camera->Close();
             return true;
         }
     }
@@ -436,7 +460,7 @@ bool AlliedVisionAlvium::connect()
     return this->cameraOpen;
 }
 
-bool AlliedVisionAlvium::connectByName(std::string cameraName)
+bool AlliedVisionAlvium::connectByUserId(std::string userId)
 {
 
     VmbErrorType err;
@@ -457,9 +481,9 @@ bool AlliedVisionAlvium::connectByName(std::string cameraName)
     }
 
     std::string deviceID;
-    if (false == this->getCameraNameFromDeviceIdList(cameraName, deviceID))
+    if (false == this->getCameraUserIdFromDeviceIdList(userId, deviceID))
     {
-        std::cerr << cameraName << " not detected..." << std::endl;
+        std::cerr << userId << " not detected..." << std::endl;
     }
     err = vimbax.OpenCameraByID(
         deviceID,
@@ -476,10 +500,10 @@ bool AlliedVisionAlvium::connectByName(std::string cameraName)
     return this->cameraOpen;
 }
 
-std::vector<std::string> AlliedVisionAlvium::getNames()
+std::vector<std::string> AlliedVisionAlvium::getUserIds()
 {
     VmbCPP::CameraPtrVector cameras;
-    std::vector<std::string> cameraNames;
+    std::vector<std::string> cameraUserIds;
 
     VmbCPP::VmbSystem &vimbax =
         VmbCPP::VmbSystem::GetInstance();
@@ -499,21 +523,35 @@ std::vector<std::string> AlliedVisionAlvium::getNames()
     {
         std::cerr << "AlliedVisionAlvium::getCameraList: Unable to detect any cameras" << std::endl;
     }
-    for (VmbCPP::CameraPtrVector::iterator iter = cameras.begin(); cameras.end() != iter; ++iter)
+    for (auto camera : cameras)
     {
-        std::string name;
-        std::string ID;
-        if (VmbErrorSuccess != (*iter)->GetName(name))
+        std::string userId;
+        VmbCPP::FeaturePtr feature;
+        if (VmbErrorSuccess != camera->Open(VmbAccessModeRead))
         {
-            std::cerr << "AlliedVisionAlvium::getCameraList: Unable to get camera name" << std::endl;
+            std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Unable to open camera" << std::endl;
+            camera->Close();
+            continue;
         }
-        else
-        {
-            cameraNames.push_back(name);
-        }
-    }
 
-    return cameraNames;
+        if (VmbErrorSuccess != camera->GetFeatureByName("DeviceUserID", feature))
+        {
+            std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Could not get feature" << std::endl;
+            camera->Close();
+            continue;
+        }
+
+        if (VmbErrorSuccess != this->GetFeatureValueAsString(feature, userId))
+        {
+            std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Unable to get userdeviceid" << std::endl;
+            camera->Close();
+            continue;
+        }
+
+        cameraUserIds.push_back(userId);
+        camera->Close();
+    }
+    return cameraUserIds;
 }
 bool AlliedVisionAlvium::disconnect(void)
 {
@@ -538,8 +576,6 @@ bool AlliedVisionAlvium::getSingleFrame(
     int openCvType;
     VmbPixelFormatType format;
     VmbFrameStatusType status;
-    uint32_t height;
-    uint32_t width;
     uint32_t bufferSize;
     cv::Mat image;
     uint8_t *data;
@@ -650,36 +686,43 @@ bool AlliedVisionAlvium::getSingleFrame(
             return VmbErrorSuccess;
         });
 
+    cv::Mat tempImage;
     switch (format)
     {
     case VmbPixelFormatMono8:
     {
         openCvType = CV_8UC1;
-        buffer.image = cv::Mat(
-            height,
-            width,
+        tempImage = cv::Mat(
+            buffer.height,
+            buffer.width,
             openCvType,
             data);
+        buffer.image = tempImage.clone();
+
         break;
     }
     case VmbPixelFormatMono10:
     {
         openCvType = CV_16UC1;
-        buffer.image = cv::Mat(
-            height,
-            width,
+        tempImage = cv::Mat(
+            buffer.height,
+            buffer.width,
             openCvType,
             data);
+        buffer.image = tempImage.clone();
+
         break;
     }
     case VmbPixelFormatMono12:
     {
         openCvType = CV_16UC1;
-        buffer.image = cv::Mat(
-            height,
-            width,
+        tempImage = cv::Mat(
+            buffer.height,
+            buffer.width,
             openCvType,
             data);
+        buffer.image = tempImage.clone();
+
         break;
     }
     case VmbPixelFormatMono12p:
@@ -691,7 +734,7 @@ bool AlliedVisionAlvium::getSingleFrame(
         /* The 2 is because it needs to fit 16 bit*/
         sourceImage.Data = data;
         destinationImage.Size = sizeof(destinationImage);
-        destinationImage.Data = malloc(width * height * 2);
+        destinationImage.Data = malloc(buffer.width * buffer.height * 2);
         if (nullptr == destinationImage.Data)
         {
             std::cerr << "Could not create destination buffer for unpacking" << std::endl;
@@ -700,8 +743,8 @@ bool AlliedVisionAlvium::getSingleFrame(
 
         VmbError_t error = VmbSetImageInfoFromPixelFormat(
             VmbPixelFormatMono12p,
-            width,
-            height,
+            buffer.width,
+            buffer.height,
             &sourceImage);
         if (VmbErrorSuccess != error)
         {
@@ -711,8 +754,8 @@ bool AlliedVisionAlvium::getSingleFrame(
         }
         error = VmbSetImageInfoFromInputParameters(
             VmbPixelFormatMono12,
-            width,
-            height,
+            buffer.width,
+            buffer.height,
             VmbPixelLayoutMono,
             16,
             &destinationImage);
@@ -731,11 +774,12 @@ bool AlliedVisionAlvium::getSingleFrame(
             std::cerr << "Could not unpack image: " << error << std::endl;
             return false;
         }
-        buffer.image = cv::Mat(
-            height,
-            width,
+        tempImage = cv::Mat(
+            buffer.height,
+            buffer.width,
             openCvType,
             destinationImage.Data);
+        buffer.image = tempImage.clone();
         free(destinationImage.Data);
         break;
     }
@@ -806,6 +850,26 @@ std::string AlliedVisionAlvium::getName()
 
     return cameraName;
 }
+
+std::string AlliedVisionAlvium::getUserId()
+{
+    VmbError_t err;
+    std::string userId;
+    if (false == this->cameraOpen)
+    {
+        std::cerr << "Could not get camera name. No camera is open..." << err << std::endl;
+        return "";
+    }
+
+    if (false == this->getFeature("DeviceUserID", userId))
+    {
+        std::cerr << "Unable to get userId..." << std::endl;
+        return "";
+    }
+
+    return userId;
+}
+
 bool AlliedVisionAlvium::setFeature(
     std::string featureName,
     std::string featureValue)
@@ -901,7 +965,7 @@ bool AlliedVisionAlvium::getFeature(
         error = feature->GetValue(data);
         if (VmbErrorSuccess != error)
         {
-            std::cerr << "Could not get feature value" << featureName << ": " << error << std::endl;
+            std::cerr << "Could not get feature value " << featureName << ": " << error << std::endl;
             return false;
         }
         featureValue = std::to_string(data);
@@ -981,12 +1045,14 @@ bool AlliedVisionAlvium::activateEvent(
     error = this->camera->GetFeatureByName("EventSelector", feature);
     if (error != VmbErrorSuccess)
     {
+        std::cerr << "Could not get feature EventSelector" << error << std::endl;
         return false;
     }
 
     error = feature->SetValue(eventName.c_str());
     if (error != VmbErrorSuccess)
     {
+        std::cerr << "Could not set feature EventSelector as " << eventName << ": " << error << std::endl;
         return false;
     }
 
@@ -994,6 +1060,7 @@ bool AlliedVisionAlvium::activateEvent(
     error = this->camera->GetFeatureByName("EventNotification", feature);
     if (error != VmbErrorSuccess)
     {
+        std::cerr << "Could not get feature EventNotification" << error << std::endl;
         return false;
     }
     else
