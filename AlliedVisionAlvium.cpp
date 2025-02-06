@@ -387,7 +387,6 @@ bool AlliedVisionAlvium::connect()
                 this->cameraOpen = false;
                 return false;
             }
-            std::cout << name << std::endl;
         }
     }
 
