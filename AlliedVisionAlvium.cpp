@@ -61,10 +61,10 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
     frame->GetWidth(frameData.width);
     frame->GetOffsetX(frameData.offsetX);
     frame->GetOffsetY(frameData.offsetY);
-    frameData.systemTimeSec = ts.tv_sec;
-    frameData.systemTimeNSec = ts.tv_nsec;
-    frameData.timestamp = cameraTimestamp;
-    frameData.frameId = frameID;
+    frameData.systemImageReceivedTimestampSec = ts.tv_sec;
+    frameData.systemImageReceivedTimestampNSec = ts.tv_nsec;
+    frameData.cameraFrameStartTimestamp = cameraTimestamp;
+    frameData.cameraFrameId = frameID;
 
     // Access the Chunk data of the incoming frame. Chunk data accesible inside lambda function
     err = frame->AccessChunkData(
@@ -89,7 +89,7 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
             }
             else
             {
-                frameData.exposureTime = std::stod(val);
+                frameData.exposureTimeUs = std::stod(val);
             }
 
             // Get a specific Chunk feature via the FeatureContainer chunkFeatures
@@ -108,13 +108,13 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
             }
             else
             {
-                frameData.gain = std::stod(val);
+                frameData.gainDb = std::stod(val);
             }
 
             return VmbErrorSuccess;
         });
 
-    switch (format)
+        switch (format)
     {
     case VmbPixelFormatMono8:
     {
@@ -586,6 +586,9 @@ bool AlliedVisionAlvium::getSingleFrame(
     VmbImage destinationImage;
     bool requiresUnpacking;
 
+    timespec ts;
+    auto now = clock_gettime(CLOCK_REALTIME, &ts);
+
     err = camera->AcquireSingleImage(frame, timeoutMs);
     if (VmbErrorSuccess != err)
     {
@@ -625,18 +628,18 @@ bool AlliedVisionAlvium::getSingleFrame(
     VmbUint64_t cameraTimestamp;
 
     frame->GetPixelFormat(format);
-
     frame->GetBufferSize(bufferSize);
     frame->GetBuffer(data);
-
+    frame->GetTimestamp(cameraTimestamp);
+    frame->GetFrameID(frameID);
     frame->GetHeight(buffer.height);
     frame->GetWidth(buffer.width);
     frame->GetOffsetX(buffer.offsetX);
     frame->GetOffsetY(buffer.offsetY);
-    frame->GetTimestamp(cameraTimestamp);
-    buffer.timestamp = cameraTimestamp;
-    frame->GetFrameID(frameID);
-    buffer.frameId = frameID;
+    buffer.cameraFrameStartTimestamp = cameraTimestamp;
+    buffer.cameraFrameId = frameID;
+    buffer.systemImageReceivedTimestampSec = ts.tv_sec;
+    buffer.systemImageReceivedTimestampNSec = ts.tv_nsec;
 
     // Access the Chunk data of the incoming frame. Chunk data accesible inside lambda function
     err = frame->AccessChunkData(
@@ -661,7 +664,7 @@ bool AlliedVisionAlvium::getSingleFrame(
             }
             else
             {
-                buffer.exposureTime = std::stod(val);
+                buffer.exposureTimeUs = std::stod(val);
             }
 
             // Get a specific Chunk feature via the FeatureContainer chunkFeatures
@@ -680,7 +683,7 @@ bool AlliedVisionAlvium::getSingleFrame(
             }
             else
             {
-                buffer.gain = std::stod(val);
+                buffer.gainDb = std::stod(val);
             }
 
             return VmbErrorSuccess;

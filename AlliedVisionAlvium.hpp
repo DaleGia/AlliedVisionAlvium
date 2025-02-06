@@ -1,3 +1,6 @@
+#ifndef ALLIEDVISIONALVIUM_H_
+#define ALLIEDVISIONALVIUM_H_
+
 #include <opencv2/opencv.hpp>
 #include "VmbCPP/VmbCPP.h"
 #include "VmbImageTransform/VmbTransform.h"
@@ -9,13 +12,13 @@ public:
     uint32_t width;
     uint32_t offsetX;
     uint32_t offsetY;
-    uint64_t frameId;
-    uint64_t timestamp;
-    time_t systemTimeSec;
-    long systemTimeNSec;
+    uint64_t cameraFrameId;
+    uint64_t cameraFrameStartTimestamp;
+    time_t systemImageReceivedTimestampSec;
+    long systemImageReceivedTimestampNSec;
 
-    double exposureTime;
-    double gain;
+    double exposureTimeUs;
+    double gainDb;
 
     cv::Mat image;
 };
@@ -107,14 +110,15 @@ public:
 
     bool getSingleFrame(AlliedVisionAlviumFrameData &buffer, uint32_t timeoutMs);
 
-    bool setDeviceThroughputLimit(std::string buffer);
-
 private:
     static VmbErrorType GetFeatureValueAsString(VmbCPP::FeaturePtr feat, std::string &val);
 
     bool getCameraUserIdFromDeviceIdList(
         std::string cameraUserId,
         std::string &deviceID);
+
     VmbCPP::CameraPtr camera;
     bool cameraOpen = false;
 };
+
+#endif
