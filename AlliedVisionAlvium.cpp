@@ -1,6 +1,18 @@
 #include "AlliedVisionAlvium.hpp"
 #include <iostream>
 
+/**
+ * \brief Handles a received frame from the camera.
+ *
+ * This function processes an incoming frame, extracting metadata and image data.
+ * It retrieves the frame status, dimensions, pixel format, and chunk data such
+ * as exposure time and gain. Depending on the pixel format, it may unpack the
+ * image data into a cv::Mat for further processing. Once processed, the frame
+ * is returned to the queue, and a callback is triggered with the frame data.
+ *
+ * \param frame A smart pointer to the received frame.
+ */
+
 void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
 {
     timespec ts;
@@ -82,7 +94,7 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
 
             // The Chunk feature can be read like any other feature
             std::string val;
-            err = GetFeatureValueAsString(feat, val);
+            err = AlliedVisionAlvium::getFeature(feat, val);
             if (err != VmbErrorSuccess)
             {
                 std::cerr << "Could not get Exposure feature value as string from frame ChunkData" << std::endl;
@@ -101,7 +113,7 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
 
             // The Chunk feature can be read like any other feature
             val = "";
-            err = GetFeatureValueAsString(feat, val);
+            err = AlliedVisionAlvium::getFeature(feat, val);
             if (err != VmbErrorSuccess)
             {
                 std::cerr << "Could not get Gain feature value as string from frame ChunkData" << std::endl;
@@ -114,7 +126,7 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
             return VmbErrorSuccess;
         });
 
-        switch (format)
+    switch (format)
     {
     case VmbPixelFormatMono8:
     {
@@ -216,6 +228,21 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
     }
 };
 
+/**
+ * \brief Called when a feature has changed
+ *
+ * This method is called by the underlying Vimba C++ API when a feature has
+ * changed. The feature that has changed is passed as an argument to the method.
+ *
+ * When this method is called, it will call the callback function set with the
+ * eventCallback argument to the EventObserver constructor. The callback function
+ * will receive the name of the feature that has changed, the new value of the
+ * feature, the current time in seconds and nanoseconds, and the argument set
+ * with the argument argument to the EventObserver constructor.
+ *
+ * The callback function may be nullptr if no callback should be called when an
+ * event occurs.
+ */
 void EventObserver::FeatureChanged(const VmbCPP::FeaturePtr &feature)
 {
     timespec ts;
@@ -251,9 +278,26 @@ void EventObserver::FeatureChanged(const VmbCPP::FeaturePtr &feature)
     }
 }
 
+/**
+ * \brief Constructor for the AlliedVisionAlvium class
+ *
+ * Initializes the AlliedVisionAlvium object. This constructor does not
+ * perform any operations, it is primarily used to set up the object
+ * instance for further configuration and operations.
+ */
+
 AlliedVisionAlvium::AlliedVisionAlvium()
 {
 }
+
+/**
+ * \brief Destructor for the AlliedVisionAlvium class
+ *
+ * Safely disconnects from the camera if it is open when the
+ * AlliedVisionAlvium object is destroyed. This ensures that
+ * resources are properly released and any exceptions during
+ * disconnection are caught and logged.
+ */
 
 AlliedVisionAlvium::~AlliedVisionAlvium()
 {
@@ -270,7 +314,25 @@ AlliedVisionAlvium::~AlliedVisionAlvium()
     }
 }
 
-bool AlliedVisionAlvium::getCameraUserIdFromDeviceIdList(std::string cameraUserId, std::string &deviceID)
+/**
+ * \brief Retrieve the device ID of a camera given its user ID.
+ *
+ * This method takes a camera user ID as input and attempts to find the
+ * matching device ID from the list of cameras available. It goes through
+ * all the cameras, opens each one, checks if the user ID matches and if
+ * so, retrieves the device ID and returns it. If the camera user ID does
+ * not match, the camera is closed and the search continues. If the camera
+ * user ID is not found, false is returned.
+ *
+ * \param[in] cameraUserId The user ID of the camera to search for.
+ * \param[out] deviceID The device ID of the camera which matches the
+ * given user ID.
+ * \return True if the camera user ID is found and the device ID is
+ * retrieved, false otherwise.
+ */
+bool AlliedVisionAlvium::getCameraUserIdFromDeviceIdList(
+    std::string cameraUserId,
+    std::string &deviceID)
 {
     VmbCPP::CameraPtrVector cameras;
 
@@ -310,7 +372,7 @@ bool AlliedVisionAlvium::getCameraUserIdFromDeviceIdList(std::string cameraUserI
             continue;
         }
 
-        if (VmbErrorSuccess != this->GetFeatureValueAsString(feature, userId))
+        if (VmbErrorSuccess != AlliedVisionAlvium::getFeature(feature, userId))
         {
             std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Unable to get userdeviceid" << std::endl;
             camera->Close();
@@ -339,6 +401,19 @@ bool AlliedVisionAlvium::getCameraUserIdFromDeviceIdList(std::string cameraUserI
     /* if we are up to here we have not found the right camera name */
     return false;
 }
+
+/**
+ * \brief Connects to the first available camera and initializes it.
+ *
+ * This function attempts to start the Vimba API and retrieve a list of connected cameras.
+ * It iterates through the available cameras to obtain their names and IDs. Once a camera
+ * is successfully opened using its ID, it sets specific features such as enabling chunk
+ * data for exposure time and gain. If no camera can be connected or any operation fails,
+ * the function logs an error and returns false. If a connection is established, it logs
+ * the connected camera's ID and returns true.
+ *
+ * \return True if a camera is successfully connected and initialized, false otherwise.
+ */
 
 bool AlliedVisionAlvium::connect()
 {
@@ -459,6 +534,20 @@ bool AlliedVisionAlvium::connect()
     return this->cameraOpen;
 }
 
+/**
+ * \brief Connect to a camera by user ID.
+ *
+ * This function takes a user ID as input and attempts to find the
+ * matching device ID from the list of cameras available. It goes through
+ * all the cameras, opens each one, checks if the user ID matches and if
+ * so, retrieves the device ID and returns true. If the camera user ID does
+ * not match, the camera is closed and the search continues. If the camera
+ * user ID is not found, false is returned.
+ *
+ * \param[in] userId The user ID of the camera to search for.
+ * \return True if the camera user ID is found and the device ID is
+ * retrieved, false otherwise.
+ */
 bool AlliedVisionAlvium::connectByUserId(std::string userId)
 {
 
@@ -499,6 +588,18 @@ bool AlliedVisionAlvium::connectByUserId(std::string userId)
     return this->cameraOpen;
 }
 
+/**
+ * \brief Get a list of user IDs for all cameras that are currently plugged in.
+ *
+ * This function starts up the Vimba API and retrieves a list of all cameras
+ * that are currently plugged in. It then iterates through each camera, opens
+ * it, gets the device user ID and closes it. If any of the steps fail, the
+ * camera is skipped and the function continues with the next camera. If no
+ * cameras are plugged in, an empty vector is returned.
+ *
+ * \return A vector of strings containing the user IDs of all cameras that are
+ * plugged in.
+ */
 std::vector<std::string> AlliedVisionAlvium::getUserIds()
 {
     VmbCPP::CameraPtrVector cameras;
@@ -540,7 +641,7 @@ std::vector<std::string> AlliedVisionAlvium::getUserIds()
             continue;
         }
 
-        if (VmbErrorSuccess != this->GetFeatureValueAsString(feature, userId))
+        if (VmbErrorSuccess != AlliedVisionAlvium::getFeature(feature, userId))
         {
             std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Unable to get userdeviceid" << std::endl;
             camera->Close();
@@ -552,6 +653,17 @@ std::vector<std::string> AlliedVisionAlvium::getUserIds()
     }
     return cameraUserIds;
 }
+
+/**
+ * \brief Disconnects from the currently connected camera.
+ *
+ * This function stops any ongoing image acquisition and attempts to close
+ * the connection to the camera. It ensures that the camera is properly
+ * disconnected and updates the cameraOpen flag accordingly. If the camera
+ * cannot be disconnected successfully, an error message is logged.
+ *
+ * \return False if the camera is successfully disconnected, true otherwise.
+ */
 bool AlliedVisionAlvium::disconnect(void)
 {
     VmbErrorType err;
@@ -566,6 +678,22 @@ bool AlliedVisionAlvium::disconnect(void)
     return this->cameraOpen;
 }
 
+/**
+ * \brief Grabs a single frame from the camera and stores it in a buffer.
+ *
+ * This function waits for a single frame from the camera and stores it in the
+ * buffer provided. It includes the timestamp when the frame was received and
+ * the frame ID. The buffer is also populated with the exposure time and gain
+ * used for the frame. The image is stored in the buffer as an OpenCV Mat. The
+ * function will wait for up to timeoutMs milliseconds for a frame to be
+ * received. If no frame is received in that time, false is returned.
+ *
+ * \param buffer The buffer to store the frame in.
+ * \param timeoutMs The maximum time in milliseconds to wait for a frame.
+ *
+ * \return True if a frame was successfully received and stored in the buffer,
+ * false otherwise.
+ */
 bool AlliedVisionAlvium::getSingleFrame(
     AlliedVisionAlviumFrameData &buffer,
     uint32_t timeoutMs)
@@ -656,7 +784,7 @@ bool AlliedVisionAlvium::getSingleFrame(
 
             // The Chunk feature can be read like any other feature
             std::string val;
-            err = AlliedVisionAlvium::GetFeatureValueAsString(feat, val);
+            err = AlliedVisionAlvium::getFeature(feat, val);
             if (err != VmbErrorSuccess)
             {
                 std::cerr << "Could not get Exposure feature value as string from frame ChunkData" << std::endl;
@@ -675,7 +803,7 @@ bool AlliedVisionAlvium::getSingleFrame(
 
             // The Chunk feature can be read like any other feature
             val = "";
-            err = GetFeatureValueAsString(feat, val);
+            err = AlliedVisionAlvium::getFeature(feat, val);
             if (err != VmbErrorSuccess)
             {
                 std::cerr << "Could not get Gain feature value as string from frame ChunkData" << std::endl;
@@ -799,6 +927,19 @@ bool AlliedVisionAlvium::getSingleFrame(
     return true;
 }
 
+/**
+ * \brief Starts continuous image acquisition.
+ *
+ * This function initiates continuous image acquisition from the camera.
+ * It sets up the frame observer using the provided callback for processing
+ * new frames and an optional argument that can be used within the callback.
+ *
+ * \param bufferCount The number of image buffers to be used for acquisition.
+ * \param newFrameCallback A callback function that is called with each new frame.
+ * \param arg An optional argument passed to the callback function.
+ * \return True if the acquisition starts successfully, false otherwise.
+ */
+
 bool AlliedVisionAlvium::startAcquisition(
     int bufferCount,
     std::function<void(AlliedVisionAlviumFrameData &, void *)> newFrameCallback,
@@ -817,6 +958,14 @@ bool AlliedVisionAlvium::startAcquisition(
     return true;
 }
 
+/**
+ * \brief Stops continuous image acquisition.
+ *
+ * This function stops continuous image acquisition from the camera and
+ * releases all queued image buffers.
+ *
+ * \return True if the acquisition stops successfully, false otherwise.
+ */
 bool AlliedVisionAlvium::stopAcquisition(void)
 {
     VmbErrorType err;
@@ -829,10 +978,26 @@ bool AlliedVisionAlvium::stopAcquisition(void)
     return true;
 }
 
+/**
+ * \brief Checks if the camera is open.
+ *
+ * This function returns the status of the camera to indicate whether it
+ * is currently open and available for operations.
+ *
+ * \return True if the camera is open, false otherwise.
+ */
 bool AlliedVisionAlvium::isCameraOpen(void)
 {
     return this->cameraOpen;
 }
+
+/**
+ * \brief Gets the name of the camera.
+ *
+ * This function returns the name of the currently open camera.
+ *
+ * \return The name of the camera if successful, an empty string otherwise.
+ */
 std::string AlliedVisionAlvium::getName()
 {
     VmbError_t err;
@@ -853,6 +1018,16 @@ std::string AlliedVisionAlvium::getName()
     return cameraName;
 }
 
+/**
+ * \brief Gets the user ID of the currently open camera.
+ *
+ * This function attempts to retrieve the user ID of the camera that is currently
+ * open. If the camera is not open, an error message is logged and an empty string
+ * is returned. If the user ID cannot be retrieved, an error message is logged and
+ * an empty string is returned.
+ *
+ * \return The user ID of the camera if successful, an empty string otherwise.
+ */
 std::string AlliedVisionAlvium::getUserId()
 {
     VmbError_t err;
@@ -872,6 +1047,19 @@ std::string AlliedVisionAlvium::getUserId()
     return userId;
 }
 
+/**
+ * \brief Sets the value of a feature.
+ *
+ * This function takes a feature name and a new value as arguments and sets the
+ * value of the feature. The function attempts to retrieve the feature by name
+ * and then sets the value with the appropriate data type. If the feature does
+ * not exist, an error is logged and false is returned. If the feature cannot
+ * be set, an error is logged and false is returned.
+ *
+ * \param featureName The name of the feature to set.
+ * \param featureValue The new value of the feature.
+ * \return True if the feature is set successfully, false otherwise.
+ */
 bool AlliedVisionAlvium::setFeature(
     std::string featureName,
     std::string featureValue)
@@ -940,6 +1128,19 @@ bool AlliedVisionAlvium::setFeature(
     return true;
 }
 
+/**
+ * \brief Retrieves the value of a camera feature.
+ *
+ * This function attempts to retrieve the value of a specified camera feature
+ * by its name. It determines the feature's data type and fetches the value
+ * accordingly. Supported data types include integer, float, string, boolean,
+ * and enum. If the feature cannot be retrieved or the data type is unknown,
+ * an error is logged and the function returns false.
+ *
+ * \param[in] featureName The name of the feature to retrieve.
+ * \param[out] featureValue The retrieved value of the feature as a string.
+ * \return True if the feature value is retrieved successfully, false otherwise.
+ */
 bool AlliedVisionAlvium::getFeature(
     std::string featureName,
     std::string &featureValue)
@@ -1025,6 +1226,21 @@ bool AlliedVisionAlvium::getFeature(
     return true;
 }
 
+/**
+ * \brief Activates an event.
+ *
+ * This function takes an event name and an event observer name as arguments and
+ * sets the value of the event selector feature to the specified event name.
+ * It also sets the value of the event notification feature to "On".
+ * Finally, it registers a callback function to be notified that the event
+ * happened.
+ *
+ * \param eventName The name of the event to activate.
+ * \param eventObserverName The name of the feature to observe for the event.
+ * \param eventCallback The callback function to execute when the event happens.
+ * \param arg The argument to pass to the callback function.
+ * \return True if the event is successfully activated, false otherwise.
+ */
 bool AlliedVisionAlvium::activateEvent(
     std::string eventName,
     std::string eventObserverName,
@@ -1095,6 +1311,15 @@ bool AlliedVisionAlvium::activateEvent(
     return true;
 }
 
+/**
+ * \brief Run a command feature on the camera.
+ *
+ * This function takes a command feature name, attempts to retrieve the feature
+ * from the camera, runs the feature, and waits until the command is done.
+ *
+ * @param command The name of the command feature to run.
+ * @return True if the command runs successfully, false otherwise.
+ */
 bool AlliedVisionAlvium::runCommand(
     std::string command)
 {
@@ -1134,69 +1359,9 @@ bool AlliedVisionAlvium::runCommand(
     return true;
 }
 
-VmbErrorType FrameObserver::GetFeatureValueAsString(VmbCPP::FeaturePtr feat, std::string &val)
-{
-    VmbErrorType err;
-    VmbFeatureDataType type;
-
-    err = feat->GetDataType(type);
-
-    if (err != VmbErrorSuccess)
-    {
-        return err;
-    }
-
-    switch (type)
-    {
-    case VmbFeatureDataBool:
-    {
-        VmbBool_t boolVal;
-        if (feat->GetValue(boolVal) == VmbErrorSuccess)
-        {
-            val = boolVal ? "true" : "false";
-            return VmbErrorSuccess;
-        }
-        break;
-    }
-    case VmbFeatureDataInt:
-    {
-        VmbInt64_t intVal;
-        if (feat->GetValue(intVal) == VmbErrorSuccess)
-        {
-            val = std::to_string(intVal);
-            return VmbErrorSuccess;
-        }
-        break;
-    }
-    case VmbFeatureDataFloat:
-    {
-        double floatVal;
-        if (feat->GetValue(floatVal) == VmbErrorSuccess)
-        {
-            val = std::to_string(floatVal);
-            return VmbErrorSuccess;
-        }
-        break;
-    }
-    case VmbFeatureDataEnum:
-    case VmbFeatureDataString:
-    {
-        std::string stringVal;
-        if (feat->GetValue(stringVal) == VmbErrorSuccess)
-        {
-            val = stringVal;
-            return VmbErrorSuccess;
-        }
-        break;
-    }
-    default:
-        break;
-    }
-
-    return VmbErrorNotSupported;
-}
-
-VmbErrorType AlliedVisionAlvium::GetFeatureValueAsString(VmbCPP::FeaturePtr feat, std::string &val)
+VmbErrorType AlliedVisionAlvium::getFeature(
+    VmbCPP::FeaturePtr feat,
+    std::string &val)
 {
     VmbErrorType err;
     VmbFeatureDataType type;

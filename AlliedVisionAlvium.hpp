@@ -22,6 +22,7 @@ public:
 
     cv::Mat image;
 };
+
 /**
  * \brief IFrameObserver implementation for asynchronous image acquisition
  */
@@ -83,6 +84,9 @@ public:
     bool getFeature(
         std::string featureName,
         std::string &featureValue);
+
+    static VmbErrorType getFeature(VmbCPP::FeaturePtr feat, std::string &val);
+
     bool setFeature(
         std::string featureName,
         std::string featureValue);
@@ -110,14 +114,14 @@ public:
 
     bool getSingleFrame(AlliedVisionAlviumFrameData &buffer, uint32_t timeoutMs);
 
-private:
-    static VmbErrorType GetFeatureValueAsString(VmbCPP::FeaturePtr feat, std::string &val);
+protected:
+    VmbCPP::CameraPtr camera;
 
+private:
     bool getCameraUserIdFromDeviceIdList(
         std::string cameraUserId,
         std::string &deviceID);
 
-    VmbCPP::CameraPtr camera;
     bool cameraOpen = false;
 };
 
