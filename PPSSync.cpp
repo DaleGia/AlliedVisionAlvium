@@ -102,9 +102,9 @@ void PPSSync::callback(
     int64_t systemTimestampAtLastPPS =
         (systemTimestampSeconds * 1000000000) + systemTimestampNanoseconds;
     int64_t cameraJitterAtLastCameraPPS =
-        ((value - cameraTimestampAtLastPPS) - 1000000000) / 1000;
+        (cameraTimestampAtLastPPS - previousCameraTimestamp - 1000000000) / 1000;
     int64_t systemJitterAtLastPPS =
-        (ppsSync->systemJitterAtLastPPS - ppsSync->previousSystemTimestamp) / 1000;
+        (systemTimestampAtLastPPS - previousSystemTimestamp - 1000000000) / 1000;
 
     ppsSync->mutex.lock();
     ppsSync->previousCameraTimestamp = previousCameraTimestamp;
