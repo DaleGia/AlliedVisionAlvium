@@ -1179,7 +1179,7 @@ bool AlliedVisionAlvium::getFeature(
         error = feature->GetValue(data);
         if (VmbErrorSuccess != error)
         {
-            std::cerr << "Could not get feature value" << featureName << ": " << error << std::endl;
+            std::cerr << "Could not get feature value " << featureName << ": " << error << std::endl;
             return false;
         }
         featureValue = std::to_string(data);

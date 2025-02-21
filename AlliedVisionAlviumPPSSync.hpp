@@ -44,9 +44,13 @@ public:
         std::function<void(AlliedVisionAlviumPPSSynchronisedFrameData &, void *)> imageCallback,
         PPSSync *pps,
         GNSS *gnss,
-        void *arg) : IFrameObserver(camera), pps(pps), callback(imageCallback), argument(arg) {
-
-                     };
+        void *arg)
+        : IFrameObserver(camera),
+          pps(pps),
+          gnss(gnss),
+          callback(imageCallback),
+          argument(arg) {
+          };
 
     void FrameReceived(const VmbCPP::FramePtr frame);
 
