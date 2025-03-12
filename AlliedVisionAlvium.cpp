@@ -477,7 +477,7 @@ bool AlliedVisionAlvium::connect()
 
         err = vimbax.OpenCameraByID(
             cameraID,
-            VmbAccessModeExclusive,
+            VmbAccessModeFull,
             this->camera);
         if (err != VmbErrorSuccess)
         {
@@ -510,15 +510,6 @@ bool AlliedVisionAlvium::connect()
     else if (false == this->setFeature("ChunkModeActive", "true"))
     {
         std::cerr << "Unable to set ChunkModeActive ExposureTime to true" << std::endl;
-    }
-
-    if (false == this->setFeature("ChunkSelector", "Gain"))
-    {
-        std::cerr << "Unable to set ChunkSelector to Gain" << std::endl;
-    }
-    else if (false == this->setFeature("ChunkModeActive", "true"))
-    {
-        std::cerr << "Unable to set ChunkModeActive Gain to true" << std::endl;
     }
 
     if (false == this->setFeature("ChunkSelector", "Gain"))
@@ -575,7 +566,7 @@ bool AlliedVisionAlvium::connectByUserId(std::string userId)
     }
     err = vimbax.OpenCameraByID(
         deviceID,
-        VmbAccessModeExclusive,
+        VmbAccessModeFull,
         this->camera);
     if (err != VmbErrorSuccess)
     {
@@ -583,6 +574,32 @@ bool AlliedVisionAlvium::connectByUserId(std::string userId)
         this->cameraOpen = false;
         return false;
     }
+
+    /* Enable the chunk data for different things so we can embedd them in the image data*/
+    if (false == this->setFeature("ChunkEnable", "true"))
+    {
+        std::cerr << "Unable to set ChunkEnable to true" << std::endl;
+    }
+
+    if (false == this->setFeature("ChunkSelector", "ExposureTime"))
+    {
+        std::cerr << "Unable to set ChunkSelector to ExposureTime" << std::endl;
+    }
+    else if (false == this->setFeature("ChunkModeActive", "true"))
+    {
+        std::cerr << "Unable to set ChunkModeActive ExposureTime to true" << std::endl;
+    }
+
+    if (false == this->setFeature("ChunkSelector", "Gain"))
+    {
+        std::cerr << "Unable to set ChunkSelector to Gain" << std::endl;
+    }
+    else if (false == this->setFeature("ChunkModeActive", "true"))
+    {
+        std::cerr << "Unable to set ChunkModeActive Gain to true" << std::endl;
+    }
+
+    std::cout << "Connected to " << userId << "/" << deviceID << std::endl;
 
     this->cameraOpen = true;
     return this->cameraOpen;
