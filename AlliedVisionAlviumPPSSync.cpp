@@ -258,9 +258,9 @@ bool AlliedVisionAlviumPPSSync::getSingleFrame(
     VmbImage destinationImage;
     bool requiresUnpacking;
 
-    AlliedVisionAlviumPPSSynchronisedFrameData frameData;
+    AlliedVisionAlviumFrameData frameData;
 
-    if (false == this->getSingleFrame(frameData, 12000))
+    if (false == this->AlliedVisionAlvium::getSingleFrame(frameData, 12000))
     {
         std::cerr << "Could not get single frame: " << err << std::endl;
         return false;

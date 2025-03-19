@@ -73,8 +73,9 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
     frame->GetWidth(frameData.width);
     frame->GetOffsetX(frameData.offsetX);
     frame->GetOffsetY(frameData.offsetY);
-    frameData.systemImageReceivedTimestampSec = ts.tv_sec;
-    frameData.systemImageReceivedTimestampNSec = ts.tv_nsec;
+    frameData.systemImageReceivedTimestamp =
+        ts.tv_sec * 10000000000 + ts.tv_nsec;
+    frameData.cameraFrameStartTimestamp = cameraTimestamp;
     frameData.cameraFrameStartTimestamp = cameraTimestamp;
     frameData.cameraFrameId = frameID;
 
@@ -782,8 +783,8 @@ bool AlliedVisionAlvium::getSingleFrame(
     frame->GetOffsetY(buffer.offsetY);
     buffer.cameraFrameStartTimestamp = cameraTimestamp;
     buffer.cameraFrameId = frameID;
-    buffer.systemImageReceivedTimestampSec = ts.tv_sec;
-    buffer.systemImageReceivedTimestampNSec = ts.tv_nsec;
+    buffer.systemImageReceivedTimestamp =
+        ts.tv_sec * 10000000000 + ts.tv_nsec;
 
     // Access the Chunk data of the incoming frame. Chunk data accesible inside lambda function
     err = frame->AccessChunkData(
