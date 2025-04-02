@@ -14,8 +14,7 @@ public:
     uint32_t offsetY;
     uint64_t cameraFrameId;
     uint64_t cameraFrameStartTimestamp;
-    time_t systemImageReceivedTimestampSec;
-    long systemImageReceivedTimestampNSec;
+    uint64_t systemImageReceivedTimestamp;
 
     double exposureTimeUs;
     double gainDb;
