@@ -266,8 +266,6 @@ bool AlliedVisionAlviumPPSSync::getSingleFrame(
         return false;
     }
 
-    timespec ts;
-    auto now = clock_gettime(CLOCK_REALTIME, &ts);
     this->ppsSync.get(
         buffer.systemTimestampAtLastPPS,
         buffer.cameraTimestampAtLastPPS,
