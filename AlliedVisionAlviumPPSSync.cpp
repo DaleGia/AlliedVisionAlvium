@@ -287,6 +287,42 @@ bool AlliedVisionAlviumPPSSync::getSingleFrame(
 
     return true;
 }
+bool AlliedVisionAlviumPPSSync::enableSync(PPSSync::Line line)
+{
+    if (false == this->ppsSync.enable(this, line, cameraPPSCallback, nullptr))
+    {
+        std::cerr << "Unable to enable PPS Sync" << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
+void AlliedVisionAlviumPPSSync::cameraPPSCallback(
+    int64_t cameraPPSTimestamp,
+    int64_t systemPPSTimestamp,
+    int64_t cameraPPSJitter,
+    int64_t systemPPSJitter,
+    void *arg)
+{
+
+    time_t seconds = systemPPSTimestamp / 1000000000LL;
+    time_t milliseconds = (systemPPSTimestamp % 1000000000LL) / 1000000LL;
+    if (milliseconds > 700)
+    {
+        seconds += 1;
+    }
+
+    std::tm *tm = std::localtime(&seconds);
+    // Format the datetime string
+    std::stringstream ss;
+    ss << std::put_time(tm, "%Y/%m/%d %H:%M:%S");
+
+    std::cout << "System Time: " << ss.str();
+    std::cout << " Camera timestamp jitter: " << cameraPPSJitter;
+    std::cout << " System timestamp jitter: " << systemPPSJitter;
+    std::cout << std::endl;
+}
 
 bool AlliedVisionAlviumPPSSync::startAcquisition(
     int bufferCount,

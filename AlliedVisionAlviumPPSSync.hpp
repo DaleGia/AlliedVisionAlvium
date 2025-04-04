@@ -67,7 +67,7 @@ public:
     AlliedVisionAlviumPPSSync();
     ~AlliedVisionAlviumPPSSync();
 
-    bool enableSync(void);
+    bool enableSync(PPSSync::Line line);
     bool startAcquisition(
         int bufferCount,
         std::function<void(AlliedVisionAlviumPPSSynchronisedFrameData &, void *)> newFrameCallback,
@@ -76,6 +76,13 @@ public:
     bool getSingleFrame(AlliedVisionAlviumPPSSynchronisedFrameData &buffer, uint32_t timeoutMs);
 
 private:
+    static void cameraPPSCallback(
+        int64_t cameraPPSTimestamp,
+        int64_t systemPPSTimestamp,
+        int64_t cameraPPSJitter,
+        int64_t systemPPSJitter,
+        void *arg);
+
     PPSSync ppsSync;
     GNSS gnss;
     std::mutex gnssMutex;
