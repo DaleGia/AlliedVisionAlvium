@@ -287,7 +287,7 @@ bool AlliedVisionAlviumPPSSync::getSingleFrame(
 
     return true;
 }
-bool AlliedVisionAlviumPPSSync::enableSync(PPSSync::Line line)
+bool AlliedVisionAlviumPPSSync::enableSync(AlliedVisionAlvium::Line line)
 {
     if (false == this->ppsSync.enable(this, line, cameraPPSCallback, nullptr))
     {

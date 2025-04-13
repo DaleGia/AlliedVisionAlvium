@@ -1,4 +1,5 @@
 #include "PPSSync.hpp"
+#include "AlliedVisionAlvium.hpp"
 
 PPSSync::PPSSync() {
 };
@@ -21,7 +22,7 @@ void PPSSync::get(
 
 bool PPSSync::enable(
     AlliedVisionAlvium *camera,
-    Line line,
+    AlliedVisionAlvium::Line line,
     std::function<void(
         int64_t,
         int64_t,
@@ -34,24 +35,24 @@ bool PPSSync::enable(
     std::string linestr;
     switch (line)
     {
-    case Line::LINE0:
+    case AlliedVisionAlvium::Line::LINE0:
         linestr = "Line0";
         break;
-    case Line::LINE1:
+    case AlliedVisionAlvium::Line::LINE1:
         linestr = "Line1";
         break;
-    case Line::LINE2:
+    case AlliedVisionAlvium::Line::LINE2:
         linestr = "Line2";
         break;
-    case Line::LINE3:
+    case AlliedVisionAlvium::Line::LINE3:
         linestr = "Line3";
         break;
     default:
         std::cerr << "Unknown line: " << line << std::endl;
         return false;
     }
-    /* Configure the camera for external triggering */
 
+    /* Configure the camera for external triggering */
     if (false == camera->setFeature("LineSelector", linestr))
     {
         std::cerr << "Could not set LineSelector" << std::endl;

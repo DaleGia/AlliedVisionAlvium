@@ -945,6 +945,74 @@ bool AlliedVisionAlvium::getSingleFrame(
     return true;
 }
 
+bool AlliedVisionAlvium::enableExternalTrigger(AlliedVisionAlvium::Line line)
+{
+    /* Configure the camera for external triggering */
+    std::string linestr;
+    switch (line)
+    {
+    case Line::LINE0:
+        linestr = "Line0";
+        break;
+    case Line::LINE1:
+        linestr = "Line1";
+        break;
+    case Line::LINE2:
+        linestr = "Line2";
+        break;
+    case Line::LINE3:
+        linestr = "Line3";
+        break;
+    default:
+        std::cerr << "Unknown line: " << line << std::endl;
+        return false;
+    }
+
+    if (false == this->setFeature("LineSelector", linestr))
+    {
+        std::cerr << "Could not set LineSelector as " << linestr << std::endl;
+        return false;
+    }
+    else if (false == this->setFeature("LineMode", "Input"))
+    {
+        std::cerr << "Could not set LineMode as Input" << std::endl;
+        return false;
+    }
+    else if (false == this->setFeature("LineDebounceMode", "Off"))
+    {
+        std::cerr << "Could not set LineDebounceMode as Off" << std::endl;
+        return false;
+    }
+    else if (false == this->setFeature("TriggerSelector", "FrameStart"))
+    {
+        std::cerr << "Could not set TriggerSelector as FrameStart" << std::endl;
+        return false;
+    }
+    else if (false == this->setFeature("TriggerSource", linestr))
+    {
+        std::cerr << "Could not set TriggerSource as " << linestr << std::endl;
+        return false;
+    }
+    else if (false == this->setFeature("TriggerMode", "On"))
+    {
+        std::cerr << "Could not set TriggerMode as On" << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
+bool AlliedVisionAlvium::disableExternalTrigger(void)
+{
+    if (false == this->setFeature("TriggerMode", "Off"))
+    {
+        std::cerr << "Could not set TriggerMode as On" << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
 /**
  * \brief Starts continuous image acquisition.
  *

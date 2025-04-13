@@ -68,6 +68,14 @@ private:
 class AlliedVisionAlvium
 {
 public:
+    enum Line
+    {
+        LINE0 = 0,
+        LINE1 = 1,
+        LINE2 = 2,
+        LINE3 = 3
+    };
+
     AlliedVisionAlvium();
     ~AlliedVisionAlvium();
 
@@ -112,6 +120,9 @@ public:
     bool stopAcquisition(void);
 
     bool getSingleFrame(AlliedVisionAlviumFrameData &buffer, uint32_t timeoutMs);
+
+    bool enableExternalTrigger(AlliedVisionAlvium::Line line);
+    bool disableExternalTrigger(void);
 
 protected:
     VmbCPP::CameraPtr camera;

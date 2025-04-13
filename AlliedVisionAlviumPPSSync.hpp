@@ -67,7 +67,7 @@ public:
     AlliedVisionAlviumPPSSync();
     ~AlliedVisionAlviumPPSSync();
 
-    bool enableSync(PPSSync::Line line);
+    bool enableSync(AlliedVisionAlvium::Line line);
     bool startAcquisition(
         int bufferCount,
         std::function<void(AlliedVisionAlviumPPSSynchronisedFrameData &, void *)> newFrameCallback,

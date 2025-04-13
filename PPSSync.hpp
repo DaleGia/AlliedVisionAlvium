@@ -17,17 +17,9 @@ public:
         int64_t &systemJitterAtLastPPS,
         int64_t &cameraJitterAtLastCameraPPS);
 
-    enum Line
-    {
-        LINE0 = 0,
-        LINE1 = 1,
-        LINE2 = 2,
-        LINE3 = 3
-    };
-
     bool enable(
         AlliedVisionAlvium *camera,
-        Line line,
+        AlliedVisionAlvium::Line line,
         std::function<void(
             int64_t,
             int64_t,
