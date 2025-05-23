@@ -73,7 +73,7 @@ public:
         std::function<void(AlliedVisionAlviumPPSSynchronisedFrameData &, void *)> newFrameCallback,
         void *arg);
 
-    bool getSingleFrame(AlliedVisionAlviumPPSSynchronisedFrameData &buffer, uint32_t timeoutMs);
+    bool getSingleSyncedFrame(AlliedVisionAlviumPPSSynchronisedFrameData &buffer, uint32_t timeoutMs);
 
 private:
     static void cameraPPSCallback(

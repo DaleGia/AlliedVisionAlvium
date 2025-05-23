@@ -239,7 +239,7 @@ AlliedVisionAlviumPPSSync::~AlliedVisionAlviumPPSSync()
 {
 }
 
-bool AlliedVisionAlviumPPSSync::getSingleFrame(
+bool AlliedVisionAlviumPPSSync::getSingleSyncedFrame(
     AlliedVisionAlviumPPSSynchronisedFrameData &buffer,
     uint32_t timeoutMs)
 {
@@ -262,7 +262,6 @@ bool AlliedVisionAlviumPPSSync::getSingleFrame(
 
     if (false == this->AlliedVisionAlvium::getSingleFrame(frameData, 12000))
     {
-        std::cerr << "Could not get single frame: " << err << std::endl;
         return false;
     }
 
@@ -312,16 +311,6 @@ void AlliedVisionAlviumPPSSync::cameraPPSCallback(
     {
         seconds += 1;
     }
-
-    std::tm *tm = std::localtime(&seconds);
-    // Format the datetime string
-    std::stringstream ss;
-    ss << std::put_time(tm, "%Y/%m/%d %H:%M:%S");
-
-    std::cout << "System Time: " << ss.str();
-    std::cout << " Camera timestamp jitter: " << cameraPPSJitter;
-    std::cout << " System timestamp jitter: " << systemPPSJitter;
-    std::cout << std::endl;
 }
 
 bool AlliedVisionAlviumPPSSync::startAcquisition(

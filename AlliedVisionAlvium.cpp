@@ -359,9 +359,11 @@ bool AlliedVisionAlvium::getCameraUserIdFromDeviceIdList(
     {
         std::string userId;
         VmbCPP::FeaturePtr feature;
-        if (VmbErrorSuccess != camera->Open(VmbAccessModeRead))
+        VmbErrorType err = camera->Open(VmbAccessModeFull);
+
+        if (VmbErrorSuccess != err)
         {
-            std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Unable to open camera" << std::endl;
+            std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Unable to open camera: " << err << std::endl;
             camera->Close();
             continue;
         }
@@ -645,7 +647,7 @@ std::vector<std::string> AlliedVisionAlvium::getUserIds()
     {
         std::string userId;
         VmbCPP::FeaturePtr feature;
-        if (VmbErrorSuccess != camera->Open(VmbAccessModeRead))
+        if (VmbErrorSuccess != camera->Open(VmbAccessModeFull))
         {
             std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Unable to open camera" << std::endl;
             camera->Close();
@@ -1006,7 +1008,7 @@ bool AlliedVisionAlvium::disableExternalTrigger(void)
 {
     if (false == this->setFeature("TriggerMode", "Off"))
     {
-        std::cerr << "Could not set TriggerMode as On" << std::endl;
+        std::cerr << "Could not set TriggerMode as Off" << std::endl;
         return false;
     }
 
