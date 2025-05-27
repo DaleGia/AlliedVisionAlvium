@@ -65,7 +65,7 @@ private:
     void *argument = nullptr;
 };
 
-class AlliedVisionAlvium
+class AlliedVisionAlvium : public VmbCPP::ICameraListObserver
 {
 public:
     enum Line
@@ -126,11 +126,15 @@ public:
 
 protected:
     VmbCPP::CameraPtr camera;
+    void CameraListChanged(
+        VmbCPP::CameraPtr pCam,
+        VmbCPP::UpdateTriggerType reason);
 
 private:
     bool getCameraUserIdFromDeviceIdList(
         std::string cameraUserId,
         std::string &deviceID);
+
 
     bool cameraOpen = false;
 };

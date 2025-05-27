@@ -36,6 +36,8 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
     if (VmbErrorSuccess != err)
     {
         std::cerr << "AlliedVisionAlvium: Could not get frame status" << std::endl;
+        m_pCamera->QueueFrame(frame);
+        return;
     }
     else if (VmbFrameStatusComplete != status)
     {
@@ -44,16 +46,19 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
         case VmbFrameStatusIncomplete:
         {
             std::cerr << "AlliedVisionAlvium: Frame incomplete. Try a slower frame rate" << std::endl;
+            m_pCamera->QueueFrame(frame);
             return;
         }
         case VmbFrameStatusTooSmall:
         {
             std::cerr << "AlliedVisionAlvium: Frame too small..." << std::endl;
+            m_pCamera->QueueFrame(frame);
             return;
         }
         case VmbFrameStatusInvalid:
         {
             std::cerr << "AlliedVisionAlvium: Frame invalid..." << std::endl;
+            m_pCamera->QueueFrame(frame);
             return;
         }
         }
@@ -90,7 +95,7 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
             err = chunkFeatures->GetFeatureByName("ExposureTime", feat);
             if (err != VmbErrorSuccess)
             {
-                std::cerr << "Could not get Exposure time from frame ChunkData" << std::endl;
+                std::cerr << "Could not get Exposure time from frame ChunkData:" << err << std::endl;
             }
 
             // The Chunk feature can be read like any other feature
@@ -98,7 +103,7 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
             err = AlliedVisionAlvium::getFeature(feat, val);
             if (err != VmbErrorSuccess)
             {
-                std::cerr << "Could not get Exposure feature value as string from frame ChunkData" << std::endl;
+                std::cerr << "Could not get Exposure feature value as string from frame ChunkData:" << err << std::endl;
             }
             else
             {
@@ -109,7 +114,7 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
             err = chunkFeatures->GetFeatureByName("Gain", feat);
             if (err != VmbErrorSuccess)
             {
-                std::cerr << "Could not get Gain from frame ChunkData" << std::endl;
+                std::cerr << "Could not get Gain from frame ChunkData:" << err << std::endl;
             }
 
             // The Chunk feature can be read like any other feature
@@ -117,7 +122,7 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
             err = AlliedVisionAlvium::getFeature(feat, val);
             if (err != VmbErrorSuccess)
             {
-                std::cerr << "Could not get Gain feature value as string from frame ChunkData" << std::endl;
+                std::cerr << "Could not get Gain feature value as string from frame ChunkData:" << err << std::endl;
             }
             else
             {
@@ -127,6 +132,12 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
             return VmbErrorSuccess;
         });
 
+    if (err != VmbErrorSuccess)
+    {
+        std::cerr << "Could not access frame ChunkData:" << err << std::endl;
+        m_pCamera->QueueFrame(frame);
+        return;
+    }
     switch (format)
     {
     case VmbPixelFormatMono8:
@@ -490,6 +501,8 @@ bool AlliedVisionAlvium::connect()
         else
         {
             this->cameraOpen = true;
+
+            vimbax.RegisterCameraListObserver(VmbCPP::ICameraListObserverPtr(this));
             break;
         }
     }
@@ -1509,4 +1522,49 @@ VmbErrorType AlliedVisionAlvium::getFeature(
     }
 
     return VmbErrorNotSupported;
+}
+
+void AlliedVisionAlvium::CameraListChanged(
+    VmbCPP::CameraPtr pCam,
+    VmbCPP::UpdateTriggerType reason)
+{
+    if (reason == VmbCPP::UpdateTriggerPluggedIn)
+    {
+        VmbErrorType err;
+        VmbCPP::CameraPtrVector cameras;
+        std::string cameraName;
+        std::string cameraId;
+
+        err = pCam->GetName(cameraName);
+        if (err != VmbErrorSuccess)
+        {
+            std::cerr << "Could not get camera name..." << std::endl;
+        }
+
+        err = pCam->GetID(cameraId);
+        if (err != VmbErrorSuccess)
+        {
+            std::cerr << "Could not get camera id..." << std::endl;
+        }
+        std::cout << "Dectected camera plug in: " << cameraName << ":" << cameraId << std::endl;
+    }
+    else if (reason == VmbCPP::UpdateTriggerPluggedOut)
+    {
+        VmbErrorType err;
+        VmbCPP::CameraPtrVector cameras;
+        std::string cameraName;
+        std::string cameraId;
+        err = pCam->GetName(cameraName);
+        if (err != VmbErrorSuccess)
+        {
+            std::cerr << "Could not get camera name..." << std::endl;
+        }
+
+        err = pCam->GetID(cameraId);
+        if (err != VmbErrorSuccess)
+        {
+            std::cerr << "Could not get camera id..." << std::endl;
+        }
+        std::cout << "Dectected camera plug out: " << cameraName << ":" << cameraId << std::endl;
+    }
 }
