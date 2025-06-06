@@ -38,6 +38,8 @@ void PPSSyncronisedFrameObserver::FrameReceived(
     if (VmbErrorSuccess != err)
     {
         std::cerr << "AlliedVisionAlvium: Could not get frame status" << std::endl;
+        m_pCamera->QueueFrame(frame);
+        return;
     }
     else if (VmbFrameStatusComplete != status)
     {
@@ -46,16 +48,25 @@ void PPSSyncronisedFrameObserver::FrameReceived(
         case VmbFrameStatusIncomplete:
         {
             std::cerr << "AlliedVisionAlvium: Frame incomplete. Try a slower frame rate" << std::endl;
+            m_pCamera->QueueFrame(frame);
             return;
         }
         case VmbFrameStatusTooSmall:
         {
             std::cerr << "AlliedVisionAlvium: Frame too small..." << std::endl;
+            m_pCamera->QueueFrame(frame);
             return;
         }
         case VmbFrameStatusInvalid:
         {
             std::cerr << "AlliedVisionAlvium: Frame invalid..." << std::endl;
+            m_pCamera->QueueFrame(frame);
+            return;
+        }
+        default:
+        {
+            std::cerr << "AlliedVisionAlvium: Frame status unknown..." << std::endl;
+            m_pCamera->QueueFrame(frame);
             return;
         }
         }
@@ -91,7 +102,8 @@ void PPSSyncronisedFrameObserver::FrameReceived(
             err = chunkFeatures->GetFeatureByName("ExposureTime", feat);
             if (err != VmbErrorSuccess)
             {
-                std::cerr << "Could not get Exposure time from frame ChunkData" << std::endl;
+                std::cerr << "Could not get Exposure time from frame ChunkData:" << err << std::endl;
+                return VmbErrorCustom;
             }
 
             // The Chunk feature can be read like any other feature
@@ -99,7 +111,8 @@ void PPSSyncronisedFrameObserver::FrameReceived(
             err = AlliedVisionAlvium::getFeature(feat, val);
             if (err != VmbErrorSuccess)
             {
-                std::cerr << "Could not get Exposure feature value as string from frame ChunkData" << std::endl;
+                std::cerr << "Could not get Exposure feature value as string from frame ChunkData:" << err << std::endl;
+                return VmbErrorCustom;
             }
             else
             {
@@ -110,7 +123,8 @@ void PPSSyncronisedFrameObserver::FrameReceived(
             err = chunkFeatures->GetFeatureByName("Gain", feat);
             if (err != VmbErrorSuccess)
             {
-                std::cerr << "Could not get Gain from frame ChunkData" << std::endl;
+                std::cerr << "Could not get Gain from frame ChunkData:" << err << std::endl;
+                return VmbErrorCustom;
             }
 
             // The Chunk feature can be read like any other feature
@@ -118,7 +132,8 @@ void PPSSyncronisedFrameObserver::FrameReceived(
             err = AlliedVisionAlvium::getFeature(feat, val);
             if (err != VmbErrorSuccess)
             {
-                std::cerr << "Could not get Gain feature value as string from frame ChunkData" << std::endl;
+                std::cerr << "Could not get Gain feature value as string from frame ChunkData:" << err << std::endl;
+                return VmbErrorCustom;
             }
             else
             {
@@ -127,7 +142,12 @@ void PPSSyncronisedFrameObserver::FrameReceived(
 
             return VmbErrorSuccess;
         });
-
+    if (err != VmbErrorSuccess)
+    {
+        std::cerr << "Could not access frame ChunkData:" << err << std::endl;
+        m_pCamera->QueueFrame(frame);
+        return;
+    }
     switch (format)
     {
     case VmbPixelFormatMono8:

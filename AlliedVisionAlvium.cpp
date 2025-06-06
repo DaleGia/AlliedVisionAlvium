@@ -61,6 +61,12 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
             m_pCamera->QueueFrame(frame);
             return;
         }
+        default:
+        {
+            std::cerr << "AlliedVisionAlvium: Frame status unknown..." << std::endl;
+            m_pCamera->QueueFrame(frame);
+            return;
+        }
         }
     }
 
@@ -96,6 +102,7 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
             if (err != VmbErrorSuccess)
             {
                 std::cerr << "Could not get Exposure time from frame ChunkData:" << err << std::endl;
+                return VmbErrorCustom;
             }
 
             // The Chunk feature can be read like any other feature
@@ -104,6 +111,8 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
             if (err != VmbErrorSuccess)
             {
                 std::cerr << "Could not get Exposure feature value as string from frame ChunkData:" << err << std::endl;
+                frameData.exposureTimeUs = 0;
+                return VmbErrorCustom;
             }
             else
             {
@@ -115,6 +124,7 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
             if (err != VmbErrorSuccess)
             {
                 std::cerr << "Could not get Gain from frame ChunkData:" << err << std::endl;
+                return VmbErrorCustom;
             }
 
             // The Chunk feature can be read like any other feature
@@ -123,6 +133,7 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
             if (err != VmbErrorSuccess)
             {
                 std::cerr << "Could not get Gain feature value as string from frame ChunkData:" << err << std::endl;
+                return VmbErrorCustom;
             }
             else
             {
@@ -514,27 +525,34 @@ bool AlliedVisionAlvium::connect()
     }
 
     /* Enable the chunk data for different things so we can embedd them in the image data*/
-    if (false == this->setFeature("ChunkEnable", "true"))
+    if (false == this->setFeature("ChunkModeActive", "false"))
     {
-        std::cerr << "Unable to set ChunkEnable to true" << std::endl;
+        std::cerr << "Unable to set ChunkModeActive to false" << std::endl;
+        return false;
     }
 
     if (false == this->setFeature("ChunkSelector", "ExposureTime"))
     {
         std::cerr << "Unable to set ChunkSelector to ExposureTime" << std::endl;
     }
-    else if (false == this->setFeature("ChunkModeActive", "true"))
+    else if (false == this->setFeature("ChunkEnable", "true"))
     {
-        std::cerr << "Unable to set ChunkModeActive ExposureTime to true" << std::endl;
+        std::cerr << "Unable to set ChunkEnable ExposureTime to true" << std::endl;
     }
 
     if (false == this->setFeature("ChunkSelector", "Gain"))
     {
         std::cerr << "Unable to set ChunkSelector to Gain" << std::endl;
     }
-    else if (false == this->setFeature("ChunkModeActive", "true"))
+    else if (false == this->setFeature("ChunkEnable", "true"))
     {
-        std::cerr << "Unable to set ChunkModeActive Gain to true" << std::endl;
+        std::cerr << "Unable to set ChunkEnable Gain to true" << std::endl;
+    }
+
+    if (false == this->setFeature("ChunkModeActive", "true"))
+    {
+        std::cerr << "Unable to set ChunkModeActive to true" << std::endl;
+        return false;
     }
 
     std::cout << "Connected to " << cameraID << std::endl;
@@ -592,27 +610,34 @@ bool AlliedVisionAlvium::connectByUserId(std::string userId)
     }
 
     /* Enable the chunk data for different things so we can embedd them in the image data*/
-    if (false == this->setFeature("ChunkEnable", "true"))
+    if (false == this->setFeature("ChunkModeActive", "false"))
     {
-        std::cerr << "Unable to set ChunkEnable to true" << std::endl;
+        std::cerr << "Unable to set ChunkModeActive to false" << std::endl;
+        return false;
     }
 
     if (false == this->setFeature("ChunkSelector", "ExposureTime"))
     {
         std::cerr << "Unable to set ChunkSelector to ExposureTime" << std::endl;
     }
-    else if (false == this->setFeature("ChunkModeActive", "true"))
+    else if (false == this->setFeature("ChunkEnable", "true"))
     {
-        std::cerr << "Unable to set ChunkModeActive ExposureTime to true" << std::endl;
+        std::cerr << "Unable to set ChunkEnable ExposureTime to true" << std::endl;
     }
 
     if (false == this->setFeature("ChunkSelector", "Gain"))
     {
         std::cerr << "Unable to set ChunkSelector to Gain" << std::endl;
     }
-    else if (false == this->setFeature("ChunkModeActive", "true"))
+    else if (false == this->setFeature("ChunkEnable", "true"))
     {
-        std::cerr << "Unable to set ChunkModeActive Gain to true" << std::endl;
+        std::cerr << "Unable to set ChunkEnable Gain to true" << std::endl;
+    }
+
+    if (false == this->setFeature("ChunkModeActive", "true"))
+    {
+        std::cerr << "Unable to set ChunkModeActive to true" << std::endl;
+        return false;
     }
 
     std::cout << "Connected to " << userId << "/" << deviceID << std::endl;
@@ -761,6 +786,8 @@ bool AlliedVisionAlvium::getSingleFrame(
     if (VmbErrorSuccess != err)
     {
         std::cerr << "Could not get frame status" << std::endl;
+        this->camera->QueueFrame(frame);
+
         return false;
     }
     else if (VmbFrameStatusComplete != status)
@@ -770,16 +797,22 @@ bool AlliedVisionAlvium::getSingleFrame(
         case VmbFrameStatusIncomplete:
         {
             std::cerr << "Frame incomplete. Try a slower frame rate" << std::endl;
+            this->camera->QueueFrame(frame);
+
             return false;
         }
         case VmbFrameStatusTooSmall:
         {
             std::cerr << "Frame too small..." << std::endl;
+            this->camera->QueueFrame(frame);
+
             return false;
         }
         case VmbFrameStatusInvalid:
         {
             std::cerr << "Frame invalid..." << std::endl;
+            this->camera->QueueFrame(frame);
+
             return false;
         }
         }
@@ -813,6 +846,7 @@ bool AlliedVisionAlvium::getSingleFrame(
             if (err != VmbErrorSuccess)
             {
                 std::cerr << "Could not get Exposure time from frame ChunkData" << std::endl;
+                return VmbErrorCustom;
             }
 
             // The Chunk feature can be read like any other feature
@@ -821,6 +855,7 @@ bool AlliedVisionAlvium::getSingleFrame(
             if (err != VmbErrorSuccess)
             {
                 std::cerr << "Could not get Exposure feature value as string from frame ChunkData" << std::endl;
+                return VmbErrorCustom;
             }
             else
             {
@@ -832,6 +867,7 @@ bool AlliedVisionAlvium::getSingleFrame(
             if (err != VmbErrorSuccess)
             {
                 std::cerr << "Could not get Gain from frame ChunkData" << std::endl;
+                return VmbErrorCustom;
             }
 
             // The Chunk feature can be read like any other feature
@@ -840,6 +876,7 @@ bool AlliedVisionAlvium::getSingleFrame(
             if (err != VmbErrorSuccess)
             {
                 std::cerr << "Could not get Gain feature value as string from frame ChunkData" << std::endl;
+                return VmbErrorCustom;
             }
             else
             {
@@ -983,7 +1020,12 @@ bool AlliedVisionAlvium::enableExternalTrigger(AlliedVisionAlvium::Line line)
         return false;
     }
 
-    if (false == this->setFeature("LineSelector", linestr))
+    if (false == this->setFeature("AcquisitionFrameRateEnable", "false"))
+    {
+        std::cerr << "Could not set AcquisitionFrameRateEnable as false" << std::endl;
+        return false;
+    }
+    else if (false == this->setFeature("LineSelector", linestr))
     {
         std::cerr << "Could not set LineSelector as " << linestr << std::endl;
         return false;
@@ -1019,7 +1061,12 @@ bool AlliedVisionAlvium::enableExternalTrigger(AlliedVisionAlvium::Line line)
 
 bool AlliedVisionAlvium::disableExternalTrigger(void)
 {
-    if (false == this->setFeature("TriggerMode", "Off"))
+    if (false == this->setFeature("AcquisitionFrameRateEnable", "false"))
+    {
+        std::cerr << "Could not set AcquisitionFrameRateEnable as false" << std::endl;
+        return false;
+    }
+    else if (false == this->setFeature("TriggerMode", "Off"))
     {
         std::cerr << "Could not set TriggerMode as Off" << std::endl;
         return false;
