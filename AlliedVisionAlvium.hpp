@@ -135,7 +135,6 @@ private:
         std::string cameraUserId,
         std::string &deviceID);
 
-
     bool cameraOpen = false;
 };
 
