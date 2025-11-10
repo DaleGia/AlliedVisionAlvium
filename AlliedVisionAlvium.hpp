@@ -28,16 +28,21 @@ public:
 class FrameObserver : public VmbCPP::IFrameObserver
 {
 public:
-    FrameObserver(VmbCPP::CameraPtr camera) : IFrameObserver(camera) {};
+    FrameObserver(VmbCPP::CameraPtr camera) : IFrameObserver(camera)
+    {
+        chunkMutex.unlock();
+    };
 
     FrameObserver(
         VmbCPP::CameraPtr camera,
         std::function<void(AlliedVisionAlviumFrameData &, void *)> imageCallback,
-        void *arg) : IFrameObserver(camera), callback(imageCallback), argument(arg) {
-
-                     };
+        void *arg) : IFrameObserver(camera), callback(imageCallback), argument(arg)
+    {
+        chunkMutex.unlock();
+    };
 
     void FrameReceived(const VmbCPP::FramePtr frame);
+    std::mutex chunkMutex;
 
 private:
     static VmbErrorType GetFeatureValueAsString(VmbCPP::FeaturePtr feat, std::string &val);

@@ -70,6 +70,7 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
         }
     }
 
+    this->chunkMutex.lock();
     // Access the Chunk data of the incoming frame. Chunk data accesible inside lambda function
     err = frame->AccessChunkData(
         [this, &frameData](VmbCPP::ChunkFeatureContainerPtr &chunkFeatures) -> VmbErrorType
@@ -95,14 +96,14 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
             if (err != VmbErrorSuccess)
             {
                 std::cerr << "Could not get ExposureTime feature from ChunkData: " << err << std::endl;
-                return VmbErrorCustom;
+                return err;
             }
 
             err = AlliedVisionAlvium::getFeature(feat, exposure);
             if (err != VmbErrorSuccess)
             {
                 std::cerr << "Could not get ExposureTime value from ChunkData: " << err << std::endl;
-                return VmbErrorCustom;
+                return err;
             }
             else
             {
@@ -114,22 +115,23 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
             if (err != VmbErrorSuccess)
             {
                 std::cerr << "Could not get Gain feature from ChunkData: " << err << std::endl;
-                return VmbErrorCustom;
+                return err;
             }
 
             err = AlliedVisionAlvium::getFeature(feat, gain);
             if (err != VmbErrorSuccess)
             {
                 std::cerr << "Could not get ExposureTime value from ChunkData: " << err << std::endl;
-                return VmbErrorCustom;
+                return err;
             }
             else
             {
-                frameData.exposureTimeUs = std::stod(gain);
+                frameData.gainDb = std::stod(gain);
             }
 
             return VmbErrorSuccess;
         });
+    this->chunkMutex.unlock();
 
     if (err != VmbErrorSuccess)
     {
