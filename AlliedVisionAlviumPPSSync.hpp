@@ -59,6 +59,8 @@ private:
     void *argument = nullptr;
     PPSSync *pps = nullptr;
     GNSS *gnss = nullptr;
+    VmbCPP::FeaturePtr m_pExposureFeat;
+    VmbCPP::FeaturePtr m_pGainFeat;
 };
 
 class AlliedVisionAlviumPPSSync : public AlliedVisionAlvium

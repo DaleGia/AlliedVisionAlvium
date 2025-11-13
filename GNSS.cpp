@@ -54,7 +54,7 @@ void GNSS::GNSS_loop(void *arg)
 
     while (false == self->GNSSStopFlag)
     {
-        gps_waiting(&self->gpsData, 2000000);
+        gps_waiting(&self->gpsData, 1000000);
         ret = gps_read(&self->gpsData, NULL, 0);
         bool allgood = true;
         if (-1 == ret)
@@ -86,6 +86,7 @@ void GNSS::GNSS_loop(void *arg)
         }
         else
         {
+            std::cout << "Bad Time: " << self->gpsData.fix.time.tv_sec << ", " << self->gpsData.fix.time.tv_nsec << std::endl;
             allgood = false;
         }
 
@@ -98,6 +99,7 @@ void GNSS::GNSS_loop(void *arg)
         }
         else
         {
+            std::cout << "Bad Lat, Lon: " << self->gpsData.fix.latitude << ", " << self->gpsData.fix.longitude << std::endl;
             allgood = false;
         }
 
@@ -107,6 +109,7 @@ void GNSS::GNSS_loop(void *arg)
         }
         else
         {
+            std::cout << "Bad Altitude: " << self->gpsData.fix.altMSL << std::endl;
             allgood = false;
         }
 

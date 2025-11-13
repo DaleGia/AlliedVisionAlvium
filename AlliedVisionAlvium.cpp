@@ -1,5 +1,31 @@
 #include "AlliedVisionAlvium.hpp"
 #include <iostream>
+#include <VmbCPP/Frame.h>
+
+VmbError_t VMB_CALL ChunkCallback(VmbHandle_t featureAccessHandle, void *userContext)
+{
+    AlliedVisionAlviumFrameData *frameData;
+    frameData = (AlliedVisionAlviumFrameData *)userContext;
+
+    VmbError_t err = VmbErrorSuccess;
+    VmbInt64_t ts = 0, w = 0, h = 0;
+
+    err = VmbFeatureFloatGet(featureAccessHandle, "ChunkExposureTime", &frameData->exposureTimeUs);
+    if (err != VmbErrorSuccess)
+    {
+        std::cerr << "Could not get exposure time from chunk data" << std::endl;
+        return err;
+    }
+
+    err = VmbFeatureFloatGet(featureAccessHandle, "ChunkGain", &frameData->gainDb);
+    if (err != VmbErrorSuccess)
+    {
+        std::cerr << "Could not get gain from chunk data" << std::endl;
+        return err;
+    }
+
+    return err;
+}
 
 /**
  * \brief Handles a received frame from the camera.
@@ -70,76 +96,6 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
         }
     }
 
-    this->chunkMutex.lock();
-    // Access the Chunk data of the incoming frame. Chunk data accesible inside lambda function
-    err = frame->AccessChunkData(
-        [this, &frameData](VmbCPP::ChunkFeatureContainerPtr &chunkFeatures) -> VmbErrorType
-        {
-            VmbCPP::FeaturePtr feat;
-            VmbErrorType err;
-
-            std::string exposure = "";
-            std::string gain = "";
-            frameData.exposureTimeUs = 0;
-            frameData.gainDb = 0;
-
-            /* test if chunkFeatures is valid*/
-            // Check if the chunkFeatures smart pointer is valid (not null).
-            if (chunkFeatures->GetHandle() == nullptr)
-            {
-                std::cerr << "Could not access chunk features: the pointer is null." << std::endl;
-                return VmbErrorNotFound; // Return an appropriate error code.
-            }
-
-            /* Get all the availabe features in the ChunkData */
-            err = chunkFeatures->GetFeatureByName("ExposureTime", feat);
-            if (err != VmbErrorSuccess)
-            {
-                std::cerr << "Could not get ExposureTime feature from ChunkData: " << err << std::endl;
-                return err;
-            }
-
-            err = AlliedVisionAlvium::getFeature(feat, exposure);
-            if (err != VmbErrorSuccess)
-            {
-                std::cerr << "Could not get ExposureTime value from ChunkData: " << err << std::endl;
-                return err;
-            }
-            else
-            {
-                frameData.exposureTimeUs = std::stod(exposure);
-            }
-
-            /* Get all the availabe features in the ChunkData */
-            err = chunkFeatures->GetFeatureByName("Gain", feat);
-            if (err != VmbErrorSuccess)
-            {
-                std::cerr << "Could not get Gain feature from ChunkData: " << err << std::endl;
-                return err;
-            }
-
-            err = AlliedVisionAlvium::getFeature(feat, gain);
-            if (err != VmbErrorSuccess)
-            {
-                std::cerr << "Could not get ExposureTime value from ChunkData: " << err << std::endl;
-                return err;
-            }
-            else
-            {
-                frameData.gainDb = std::stod(gain);
-            }
-
-            return VmbErrorSuccess;
-        });
-    this->chunkMutex.unlock();
-
-    if (err != VmbErrorSuccess)
-    {
-        std::cerr << "Could not access frame ChunkData:" << err << std::endl;
-        // m_pCamera->QueueFrame(frame);
-        // return;
-    }
-
     /* Get all of the information about the frame including the chunk data */
 
     VmbUint64_t cameraTimestamp;
@@ -159,6 +115,19 @@ void FrameObserver::FrameReceived(const VmbCPP::FramePtr frame)
     frameData.cameraFrameStartTimestamp = cameraTimestamp;
     frameData.cameraFrameStartTimestamp = cameraTimestamp;
     frameData.cameraFrameId = frameID;
+
+    VmbFrame_t *frame2GetChunk = nullptr;
+    err = frame->GetFrameStruct(frame2GetChunk);
+    if (err != VmbErrorSuccess)
+    {
+        std::cerr << "Could not get frame struct:" << err << std::endl;
+    }
+
+    err = VmbChunkDataAccess(frame2GetChunk, ChunkCallback, &frameData);
+    if (err != VmbErrorSuccess)
+    {
+        std::cerr << "Could not access frame ChunkData:" << err << std::endl;
+    }
 
     switch (format)
     {
@@ -401,16 +370,18 @@ bool AlliedVisionAlvium::getCameraUserIdFromDeviceIdList(
             continue;
         }
 
-        if (VmbErrorSuccess != cameras[i]->GetFeatureByName("DeviceUserID", feature))
+        err = cameras[i]->GetFeatureByName("DeviceUserID", feature);
+        if (VmbErrorSuccess != err)
         {
-            std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Could not get feature" << std::endl;
+            std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Could not get feature: " << err << std::endl;
             cameras[i]->Close();
             continue;
         }
 
-        if (VmbErrorSuccess != AlliedVisionAlvium::getFeature(feature, userId))
+        err = feature->GetValue(userId);
+        if (VmbErrorSuccess != feature->GetValue(userId))
         {
-            std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Unable to get userdeviceid" << std::endl;
+            std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Unable to get userdeviceid" << err << std::endl;
             cameras[i]->Close();
             continue;
         }
@@ -421,9 +392,10 @@ bool AlliedVisionAlvium::getCameraUserIdFromDeviceIdList(
             continue;
         }
 
-        if (VmbErrorSuccess != cameras[i]->GetID(deviceID))
+        err = cameras[i]->GetID(deviceID);
+        if (VmbErrorSuccess != err)
         {
-            std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Unable to get device Id" << std::endl;
+            std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Unable to get device Id: " << err << std::endl;
             cameras[i]->Close();
             continue;
         }
@@ -522,8 +494,6 @@ bool AlliedVisionAlvium::connect()
         else
         {
             this->cameraOpen = true;
-
-            vimbax.RegisterCameraListObserver(VmbCPP::ICameraListObserverPtr(this));
             break;
         }
     }
@@ -534,34 +504,9 @@ bool AlliedVisionAlvium::connect()
         return false;
     }
 
-    /* Enable the chunk data for different things so we can embedd them in the image data*/
-    if (false == this->setFeature("ChunkModeActive", "false"))
+    if (false == this->enableChunk())
     {
-        std::cerr << "Unable to set ChunkModeActive to false" << std::endl;
-        return false;
-    }
-
-    if (false == this->setFeature("ChunkSelector", "ExposureTime"))
-    {
-        std::cerr << "Unable to set ChunkSelector to ExposureTime" << std::endl;
-    }
-    else if (false == this->setFeature("ChunkEnable", "true"))
-    {
-        std::cerr << "Unable to set ChunkEnable ExposureTime to true" << std::endl;
-    }
-
-    if (false == this->setFeature("ChunkSelector", "Gain"))
-    {
-        std::cerr << "Unable to set ChunkSelector to Gain" << std::endl;
-    }
-    else if (false == this->setFeature("ChunkEnable", "true"))
-    {
-        std::cerr << "Unable to set ChunkEnable Gain to true" << std::endl;
-    }
-
-    if (false == this->setFeature("ChunkModeActive", "true"))
-    {
-        std::cerr << "Unable to set ChunkModeActive to true" << std::endl;
+        std::cerr << "Unable to enable chunk data" << std::endl;
         return false;
     }
 
@@ -618,34 +563,9 @@ bool AlliedVisionAlvium::connectByUserId(std::string userId)
         return false;
     }
 
-    /* Enable the chunk data for different things so we can embedd them in the image data*/
-    if (false == this->setFeature("ChunkModeActive", "false"))
+    if (false == this->enableChunk())
     {
-        std::cerr << "Unable to set ChunkModeActive to false" << std::endl;
-        return false;
-    }
-
-    if (false == this->setFeature("ChunkSelector", "ExposureTime"))
-    {
-        std::cerr << "Unable to set ChunkSelector to ExposureTime" << std::endl;
-    }
-    else if (false == this->setFeature("ChunkEnable", "true"))
-    {
-        std::cerr << "Unable to set ChunkEnable ExposureTime to true" << std::endl;
-    }
-
-    if (false == this->setFeature("ChunkSelector", "Gain"))
-    {
-        std::cerr << "Unable to set ChunkSelector to Gain" << std::endl;
-    }
-    else if (false == this->setFeature("ChunkEnable", "true"))
-    {
-        std::cerr << "Unable to set ChunkEnable Gain to true" << std::endl;
-    }
-
-    if (false == this->setFeature("ChunkModeActive", "true"))
-    {
-        std::cerr << "Unable to set ChunkModeActive to true" << std::endl;
+        std::cerr << "Unable to enable chunk data" << std::endl;
         return false;
     }
 
@@ -701,16 +621,18 @@ std::vector<std::string> AlliedVisionAlvium::getUserIds()
             continue;
         }
 
-        if (VmbErrorSuccess != cameras[i]->GetFeatureByName("DeviceUserID", feature))
+        err = cameras[i]->GetFeatureByName("DeviceUserID", feature);
+        if (VmbErrorSuccess != err)
         {
-            std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Could not get feature" << std::endl;
+            std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Could not get feature" << err << std::endl;
             cameras[i]->Close();
             continue;
         }
 
-        if (VmbErrorSuccess != AlliedVisionAlvium::getFeature(feature, userId))
+        err = feature->GetValue(userId);
+        if (VmbErrorSuccess != err)
         {
-            std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Unable to get userdeviceid" << std::endl;
+            std::cerr << "AlliedVisionAlvium::getCameraUserIdFromDeviceIdList: Unable to get userdeviceid: " << err << std::endl;
             cameras[i]->Close();
             continue;
         }
@@ -855,15 +777,11 @@ bool AlliedVisionAlvium::getSingleFrame(
                 return VmbErrorCustom;
             }
 
-            err = AlliedVisionAlvium::getFeature(feat, exposure);
+            err = feat->GetValue(buffer.exposureTimeUs);
             if (err != VmbErrorSuccess)
             {
                 std::cerr << "Could not get ExposureTime value from ChunkData: " << err << std::endl;
                 return VmbErrorCustom;
-            }
-            else
-            {
-                buffer.exposureTimeUs = std::stod(exposure);
             }
 
             /* Get all the availabe features in the ChunkData */
@@ -874,15 +792,11 @@ bool AlliedVisionAlvium::getSingleFrame(
                 return VmbErrorCustom;
             }
 
-            err = AlliedVisionAlvium::getFeature(feat, gain);
+            err = feat->GetValue(buffer.gainDb);
             if (err != VmbErrorSuccess)
             {
-                std::cerr << "Could not get ExposureTime value from ChunkData: " << err << std::endl;
+                std::cerr << "Could not get Gain value from ChunkData: " << err << std::endl;
                 return VmbErrorCustom;
-            }
-            else
-            {
-                buffer.gainDb = std::stod(gain);
             }
 
             return VmbErrorSuccess;
@@ -891,6 +805,26 @@ bool AlliedVisionAlvium::getSingleFrame(
     if (err != VmbErrorSuccess)
     {
         std::cerr << "Could not access frame ChunkData:" << err << std::endl;
+
+        std::string exposure;
+        if (true == this->getFeature("ExposureTime", exposure))
+        {
+            buffer.exposureTimeUs = std::stod(exposure);
+        }
+        else
+        {
+            buffer.exposureTimeUs = 0;
+        }
+
+        std::string gain;
+        if (true == this->getFeature("Gain", gain))
+        {
+            buffer.gainDb = std::stod(gain);
+        }
+        else
+        {
+            buffer.gainDb = 0;
+        }
     }
 
     VmbUint64_t cameraTimestamp;
@@ -1299,6 +1233,45 @@ bool AlliedVisionAlvium::setFeature(
     return true;
 }
 
+bool AlliedVisionAlvium::enableChunk()
+{
+    /* Enable the chunk data for different things so we can embedd them in the image data*/
+    if (false == this->setFeature("ChunkModeActive", "false"))
+    {
+        std::cerr << "Unable to set ChunkModeActive to false" << std::endl;
+        return false;
+    }
+
+    if (false == this->setFeature("ChunkSelector", "ExposureTime"))
+    {
+        std::cerr << "Unable to set ChunkSelector to ExposureTime" << std::endl;
+    }
+    else if (false == this->setFeature("ChunkEnable", "true"))
+    {
+        std::cerr << "Unable to set ChunkEnable ExposureTime to true" << std::endl;
+    }
+    else
+    {
+        std::cerr << "Set ChunkEnable ExposureTime to true" << std::endl;
+    }
+
+    if (false == this->setFeature("ChunkSelector", "Gain"))
+    {
+        std::cerr << "Unable to set ChunkSelector to Gain" << std::endl;
+    }
+    else if (false == this->setFeature("ChunkEnable", "true"))
+    {
+        std::cerr << "Unable to set ChunkEnable Gain to true" << std::endl;
+    }
+
+    if (false == this->setFeature("ChunkModeActive", "true"))
+    {
+        std::cerr << "Unable to set ChunkModeActive to true" << std::endl;
+        return false;
+    }
+
+    return true;
+}
 /**
  * \brief Retrieves the value of a camera feature.
  *
@@ -1530,7 +1503,7 @@ bool AlliedVisionAlvium::runCommand(
     return true;
 }
 
-VmbErrorType AlliedVisionAlvium::getFeature(
+VmbErrorType AlliedVisionAlvium::getFeatureStatic(
     VmbCPP::FeaturePtr feat,
     std::string &val)
 {

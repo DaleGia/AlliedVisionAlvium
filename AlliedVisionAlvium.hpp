@@ -28,27 +28,25 @@ public:
 class FrameObserver : public VmbCPP::IFrameObserver
 {
 public:
-    FrameObserver(VmbCPP::CameraPtr camera) : IFrameObserver(camera)
-    {
-        chunkMutex.unlock();
-    };
+    FrameObserver(VmbCPP::CameraPtr camera) : IFrameObserver(camera) {
+                                              };
 
     FrameObserver(
         VmbCPP::CameraPtr camera,
         std::function<void(AlliedVisionAlviumFrameData &, void *)> imageCallback,
-        void *arg) : IFrameObserver(camera), callback(imageCallback), argument(arg)
-    {
-        chunkMutex.unlock();
-    };
+        void *arg) : IFrameObserver(camera), callback(imageCallback), argument(arg) {
+                     };
 
     void FrameReceived(const VmbCPP::FramePtr frame);
-    std::mutex chunkMutex;
 
 private:
     static VmbErrorType GetFeatureValueAsString(VmbCPP::FeaturePtr feat, std::string &val);
 
     std::function<void(AlliedVisionAlviumFrameData &, void *)> callback = nullptr;
     void *argument = nullptr;
+
+    VmbCPP::FeaturePtr m_pExposureFeat;
+    VmbCPP::FeaturePtr m_pGainFeat;
 };
 
 /**
@@ -97,11 +95,13 @@ public:
         std::string featureName,
         std::string &featureValue);
 
-    static VmbErrorType getFeature(VmbCPP::FeaturePtr feat, std::string &val);
+    static VmbErrorType getFeatureStatic(VmbCPP::FeaturePtr feat, std::string &val);
 
     bool setFeature(
         std::string featureName,
         std::string featureValue);
+
+    bool enableChunk();
 
     bool activateEvent(
         std::string eventName,

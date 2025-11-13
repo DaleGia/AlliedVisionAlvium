@@ -1,5 +1,32 @@
 #include "AlliedVisionAlviumPPSSync.hpp"
 #include <iostream>
+#include <VmbCPP/Frame.hpp>
+#include <VmbCPP/Frame.h>
+
+VmbError_t VMB_CALL ChunkCallbackSync(VmbHandle_t featureAccessHandle, void *userContext)
+{
+    AlliedVisionAlviumPPSSynchronisedFrameData *frameData;
+    frameData = (AlliedVisionAlviumPPSSynchronisedFrameData *)userContext;
+
+    VmbError_t err = VmbErrorSuccess;
+    VmbInt64_t ts = 0, w = 0, h = 0;
+
+    err = VmbFeatureFloatGet(featureAccessHandle, "ChunkExposureTime", &frameData->exposureTimeUs);
+    if (err != VmbErrorSuccess)
+    {
+        std::cerr << "Could not get exposure time from chunk data" << std::endl;
+        return err;
+    }
+
+    err = VmbFeatureFloatGet(featureAccessHandle, "ChunkGain", &frameData->gainDb);
+    if (err != VmbErrorSuccess)
+    {
+        std::cerr << "Could not get gain from chunk data" << std::endl;
+        return err;
+    }
+
+    return err;
+}
 
 void PPSSyncronisedFrameObserver::FrameReceived(
     const VmbCPP::FramePtr frame)
@@ -72,73 +99,52 @@ void PPSSyncronisedFrameObserver::FrameReceived(
         }
     }
 
-    // Access the Chunk data of the incoming frame. Chunk data accesible inside lambda function
-    err = frame->AccessChunkData(
-        [this, &frameData](VmbCPP::ChunkFeatureContainerPtr &chunkFeatures) -> VmbErrorType
-        {
-            VmbCPP::FeaturePtr feat;
-            VmbErrorType err;
+    // // Access the Chunk data of the incoming frame. Chunk data accesible inside lambda function
+    // err = frame->AccessChunkData(
+    //     [this, &frameData](VmbCPP::ChunkFeatureContainerPtr &chunkFeatures) -> VmbErrorType
+    //     {
+    //         VmbErrorType err;
 
-            std::string exposure = "";
-            std::string gain = "";
-            frameData.exposureTimeUs = 0;
-            frameData.gainDb = 0;
+    //         std::string exposure = "";
+    //         std::string gain = "";
+    //         frameData.exposureTimeUs = 0;
+    //         frameData.gainDb = 0;
 
-            /* test if chunkFeatures is valid*/
-            // Check if the chunkFeatures smart pointer is valid (not null).
-            if (chunkFeatures->GetHandle() == nullptr)
-            {
-                std::cerr << "Could not access chunk features: the pointer is null." << std::endl;
-                return VmbErrorNotFound; // Return an appropriate error code.
-            }
+    //         err = chunkFeatures->GetFeatureByName("ChunkExposureTime", this->m_pExposureFeat);
+    //         if (err != VmbErrorSuccess)
+    //         {
+    //             std::cerr << "Could not get ExposureTime feature from ChunkData: " << err << std::endl;
+    //             return err;
+    //         }
+    //         err = this->m_pExposureFeat->GetValue(frameData.exposureTimeUs);
+    //         if (err != VmbErrorSuccess)
+    //         {
+    //             std::cerr << "Could not get ExposureTime value from ChunkData: " << err << std::endl;
+    //             return err;
+    //         }
 
-            /* Get all the availabe features in the ChunkData */
-            err = chunkFeatures->GetFeatureByName("ExposureTime", feat);
-            if (err != VmbErrorSuccess)
-            {
-                std::cerr << "Could not get ExposureTime feature from ChunkData: " << err << std::endl;
-                return VmbErrorCustom;
-            }
+    //         err = chunkFeatures->GetFeatureByName("ChunkGain", this->m_pGainFeat);
+    //         if (err != VmbErrorSuccess)
+    //         {
+    //             std::cerr << "Could not get Gain feature from ChunkData: " << err << std::endl;
+    //             return err;
+    //         }
+    //         err = this->m_pGainFeat->GetValue(frameData.gainDb);
+    //         if (err != VmbErrorSuccess)
+    //         {
+    //             std::cerr << "Could not get Gain value from ChunkData: " << err << std::endl;
+    //             return err;
+    //         }
 
-            err = AlliedVisionAlvium::getFeature(feat, exposure);
-            if (err != VmbErrorSuccess)
-            {
-                std::cerr << "Could not get ExposureTime value from ChunkData: " << err << std::endl;
-                return VmbErrorCustom;
-            }
-            else
-            {
-                frameData.exposureTimeUs = std::stod(exposure);
-            }
+    //         return VmbErrorSuccess;
+    //     });
 
-            /* Get all the availabe features in the ChunkData */
-            err = chunkFeatures->GetFeatureByName("Gain", feat);
-            if (err != VmbErrorSuccess)
-            {
-                std::cerr << "Could not get Gain feature from ChunkData: " << err << std::endl;
-                return VmbErrorCustom;
-            }
-
-            err = AlliedVisionAlvium::getFeature(feat, gain);
-            if (err != VmbErrorSuccess)
-            {
-                std::cerr << "Could not get ExposureTime value from ChunkData: " << err << std::endl;
-                return VmbErrorCustom;
-            }
-            else
-            {
-                frameData.gainDb = std::stod(gain);
-            }
-
-            return VmbErrorSuccess;
-        });
-
-    if (err != VmbErrorSuccess)
-    {
-        std::cerr << "Could not access frame ChunkData:" << err << std::endl;
-        // m_pCamera->QueueFrame(frame);
-        // return;
-    }
+    // if (err != VmbErrorSuccess)
+    // {
+    //     std::cerr << "Could not access frame ChunkData:" << err << std::endl;
+    //     // m_pCamera->QueueFrame(frame);
+    //     // return;
+    // }
 
     /* Get all of the information about the frame including the chunk data */
     VmbUint64_t cameraTimestamp;
@@ -157,6 +163,19 @@ void PPSSyncronisedFrameObserver::FrameReceived(
         ts.tv_sec * 10000000000 + ts.tv_nsec;
     frameData.cameraFrameStartTimestamp = cameraTimestamp;
     frameData.cameraFrameId = frameID;
+
+    VmbFrame_t *frame2GetChunk = nullptr;
+    err = frame->GetFrameStruct(frame2GetChunk);
+    if (err != VmbErrorSuccess)
+    {
+        std::cerr << "Could not get frame struct:" << err << std::endl;
+    }
+
+    err = VmbChunkDataAccess(frame2GetChunk, ChunkCallbackSync, &frameData);
+    if (err != VmbErrorSuccess)
+    {
+        std::cerr << "Could not access frame ChunkData:" << err << std::endl;
+    }
 
     switch (format)
     {
@@ -300,6 +319,12 @@ bool AlliedVisionAlviumPPSSync::getSingleSyncedFrame(
         buffer.cameraTimestampAtLastPPS,
         buffer.systemJitterAtLastPPS,
         buffer.cameraJitterAtLastCameraPPS);
+
+    this->gnss.get(
+        buffer.lastGNSSLatitude,
+        buffer.lastGNSSLongitude,
+        buffer.lastGNSSAltitudeMSL,
+        buffer.lastGNSStimestamp);
 
     buffer.cameraFrameStartTimestamp = frameData.cameraFrameStartTimestamp;
     buffer.cameraFrameId = frameData.cameraFrameId;
