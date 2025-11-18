@@ -99,53 +99,6 @@ void PPSSyncronisedFrameObserver::FrameReceived(
         }
     }
 
-    // // Access the Chunk data of the incoming frame. Chunk data accesible inside lambda function
-    // err = frame->AccessChunkData(
-    //     [this, &frameData](VmbCPP::ChunkFeatureContainerPtr &chunkFeatures) -> VmbErrorType
-    //     {
-    //         VmbErrorType err;
-
-    //         std::string exposure = "";
-    //         std::string gain = "";
-    //         frameData.exposureTimeUs = 0;
-    //         frameData.gainDb = 0;
-
-    //         err = chunkFeatures->GetFeatureByName("ChunkExposureTime", this->m_pExposureFeat);
-    //         if (err != VmbErrorSuccess)
-    //         {
-    //             std::cerr << "Could not get ExposureTime feature from ChunkData: " << err << std::endl;
-    //             return err;
-    //         }
-    //         err = this->m_pExposureFeat->GetValue(frameData.exposureTimeUs);
-    //         if (err != VmbErrorSuccess)
-    //         {
-    //             std::cerr << "Could not get ExposureTime value from ChunkData: " << err << std::endl;
-    //             return err;
-    //         }
-
-    //         err = chunkFeatures->GetFeatureByName("ChunkGain", this->m_pGainFeat);
-    //         if (err != VmbErrorSuccess)
-    //         {
-    //             std::cerr << "Could not get Gain feature from ChunkData: " << err << std::endl;
-    //             return err;
-    //         }
-    //         err = this->m_pGainFeat->GetValue(frameData.gainDb);
-    //         if (err != VmbErrorSuccess)
-    //         {
-    //             std::cerr << "Could not get Gain value from ChunkData: " << err << std::endl;
-    //             return err;
-    //         }
-
-    //         return VmbErrorSuccess;
-    //     });
-
-    // if (err != VmbErrorSuccess)
-    // {
-    //     std::cerr << "Could not access frame ChunkData:" << err << std::endl;
-    //     // m_pCamera->QueueFrame(frame);
-    //     // return;
-    // }
-
     /* Get all of the information about the frame including the chunk data */
     VmbUint64_t cameraTimestamp;
     VmbUint64_t frameID;
@@ -183,30 +136,33 @@ void PPSSyncronisedFrameObserver::FrameReceived(
     {
         openCvType = CV_8UC1;
         frameData.image = cv::Mat(
-            frameData.height,
-            frameData.width,
-            openCvType,
-            data);
+                              frameData.height,
+                              frameData.width,
+                              openCvType,
+                              data)
+                              .clone();
         break;
     }
     case VmbPixelFormatMono10:
     {
         openCvType = CV_16UC1;
         frameData.image = cv::Mat(
-            frameData.height,
-            frameData.width,
-            openCvType,
-            data);
+                              frameData.height,
+                              frameData.width,
+                              openCvType,
+                              data)
+                              .clone();
         break;
     }
     case VmbPixelFormatMono12:
     {
         openCvType = CV_16UC1;
         frameData.image = cv::Mat(
-            frameData.height,
-            frameData.width,
-            openCvType,
-            data);
+                              frameData.height,
+                              frameData.width,
+                              openCvType,
+                              data)
+                              .clone();
         break;
     }
     case VmbPixelFormatMono12p:
@@ -222,6 +178,7 @@ void PPSSyncronisedFrameObserver::FrameReceived(
         if (nullptr == destinationImage.Data)
         {
             std::cerr << "Could not create destination buffer for unpacking" << std::endl;
+            m_pCamera->QueueFrame(frame);
             return;
         }
 
@@ -233,6 +190,9 @@ void PPSSyncronisedFrameObserver::FrameReceived(
         if (VmbErrorSuccess != error)
         {
             std::cerr << "Could not create source image info for unpacking: " << error << std::endl;
+            free(destinationImage.Data);
+            m_pCamera->QueueFrame(frame);
+
             return;
         }
         error = VmbSetImageInfoFromInputParameters(
@@ -245,6 +205,8 @@ void PPSSyncronisedFrameObserver::FrameReceived(
         if (error != VmbErrorSuccess)
         {
             std::cerr << "Could not create destination image info for unpacking: " << error << std::endl;
+            free(destinationImage.Data);
+            m_pCamera->QueueFrame(frame);
         }
         error = VmbImageTransform(
             &sourceImage,
@@ -254,6 +216,8 @@ void PPSSyncronisedFrameObserver::FrameReceived(
         if (error != VmbErrorSuccess)
         {
             std::cerr << "Could not unpack image: " << error << std::endl;
+            free(destinationImage.Data);
+            m_pCamera->QueueFrame(frame);
         }
         frameData.image = cv::Mat(
                               frameData.height,
@@ -267,6 +231,7 @@ void PPSSyncronisedFrameObserver::FrameReceived(
     default:
     {
         std::cerr << "Camera frame format not supported... " << format << std::endl;
+        m_pCamera->QueueFrame(frame);
         return;
     }
     }
