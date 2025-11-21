@@ -95,11 +95,19 @@ public:
         std::string featureName,
         std::string &featureValue);
 
+    bool getFeature(
+        std::string featureName,
+        double &featureValue);
+
     static VmbErrorType getFeatureStatic(VmbCPP::FeaturePtr feat, std::string &val);
 
     bool setFeature(
         std::string featureName,
         std::string featureValue);
+
+    bool setFeature(
+        std::string featureName,
+        double featureValue);
 
     bool enableChunk();
 

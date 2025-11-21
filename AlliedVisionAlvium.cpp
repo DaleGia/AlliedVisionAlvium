@@ -319,6 +319,12 @@ AlliedVisionAlvium::~AlliedVisionAlvium()
         if (cameraOpen)
         {
             this->disconnect();
+            VmbCPP::VmbSystem &vimbax =
+                VmbCPP::VmbSystem::GetInstance();
+
+            VmbErrorType err;
+            /* Start the API, get and open cameras */
+            err = vimbax.Shutdown();
         }
     }
     catch (const std::exception &e)
@@ -759,20 +765,20 @@ bool AlliedVisionAlvium::getSingleFrame(
         }
     }
 
-    std::string exposure;
+    double exposure;
     if (true == this->getFeature("ExposureTime", exposure))
     {
-        buffer.exposureTimeUs = std::stod(exposure);
+        buffer.exposureTimeUs = exposure;
     }
     else
     {
         buffer.exposureTimeUs = 0;
     }
 
-    std::string gain;
+    double gain;
     if (true == this->getFeature("Gain", gain))
     {
-        buffer.gainDb = std::stod(gain);
+        buffer.gainDb = gain;
     }
     else
     {
@@ -1187,6 +1193,32 @@ bool AlliedVisionAlvium::setFeature(
     return true;
 }
 
+bool AlliedVisionAlvium::setFeature(
+    std::string featureName,
+    double featureValue)
+{
+    VmbCPP::FeaturePtr feature;
+    VmbError_t error;
+    VmbFeatureDataType dataType;
+
+    error = this->camera->GetFeatureByName(featureName.c_str(), feature);
+    if (VmbErrorSuccess != error)
+    {
+        std::cerr << "Could not get feature " << featureName << std::endl;
+        return false;
+    }
+
+    error = feature->SetValue(featureValue);
+
+    if (VmbErrorSuccess != error)
+    {
+        std::cerr << "Could not set feature " << featureName << ": " << error << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
 bool AlliedVisionAlvium::enableChunk()
 {
     /* Enable the chunk data for different things so we can embedd them in the image data*/
@@ -1226,6 +1258,7 @@ bool AlliedVisionAlvium::enableChunk()
 
     return true;
 }
+
 /**
  * \brief Retrieves the value of a camera feature.
  *
@@ -1318,6 +1351,30 @@ bool AlliedVisionAlvium::getFeature(
     else
     {
         std::cerr << "Unknown feature datatype: " << dataType << " for " << featureName << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
+bool AlliedVisionAlvium::getFeature(
+    std::string featureName,
+    double &featureValue)
+{
+    VmbCPP::FeaturePtr feature;
+    VmbError_t error;
+
+    error = this->camera->GetFeatureByName(featureName.c_str(), feature);
+    if (VmbErrorSuccess != error)
+    {
+        std::cerr << "Could not get feature " << featureName << ": " << error << std::endl;
+        return false;
+    }
+
+    error = feature->GetValue(featureValue);
+    if (VmbErrorSuccess != error)
+    {
+        std::cerr << "Could not get feature value " << featureName << ": " << error << std::endl;
         return false;
     }
 
